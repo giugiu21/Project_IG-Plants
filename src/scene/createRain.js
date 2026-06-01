@@ -31,23 +31,12 @@ function createSplashMaterial() {
   });
 }
 
-function createDropMaterial() {
-  return new THREE.MeshBasicMaterial({
-    color: 0xdff6ff,
-    transparent: true,
-    opacity: 0.0,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending
-  });
-}
-
 export function createRain({
   count = 1200,
   radius = 4.75,
   height = 7.0,
   groundY = 0,
-  splashCount = 90,
-  surfaceDropCount = 120
+  splashCount = 90
 } = {}) {
   const group = new THREE.Group();
 
@@ -57,10 +46,6 @@ export function createRain({
     targetIntensity: 0
   };
 
-  /**
-   * Ogni goccia è una linea:
-   * 2 punti per goccia = 6 valori float.
-   */
   const geometry = new THREE.BufferGeometry();
   const positions = new Float32Array(count * 6);
 
@@ -112,9 +97,6 @@ export function createRain({
   rainLines.visible = false;
   group.add(rainLines);
 
-  /**
-   * Splash sul terreno.
-   */
   const splashPool = [];
   const splashMaterial = createSplashMaterial();
 
@@ -134,26 +116,7 @@ export function createRain({
     group.add(splash);
   }
 
-  /**
-   * Piccole gocce che restano su foglie/petali.
-   */
-  const surfaceDrops = [];
-  const surfaceDropMaterial = createDropMaterial();
-
-  for (let i = 0; i < surfaceDropCount; i++) {
-    const drop = new THREE.Mesh(
-      new THREE.SphereGeometry(0.018, 8, 6),
-      surfaceDropMaterial.clone()
-    );
-
-    drop.visible = false;
-
-    drop.userData.life = 0;
-    drop.userData.maxLife = 0.9 + Math.random() * 0.9;
-
-    surfaceDrops.push(drop);
-    group.add(drop);
-  }
+  group.visible = false;
 
   function setActive(value) {
     state.active = value;
@@ -178,37 +141,29 @@ export function createRain({
   }
 
   function addSplash(position, strength = 1) {
+    const distFromCenter = Math.sqrt(
+      position.x * position.x +
+      position.z * position.z
+    );
+
+    if (distFromCenter > radius) return;
+
     const splash = splashPool.find((s) => !s.visible);
     if (!splash) return;
 
     splash.visible = true;
-    splash.position.copy(position);
-    splash.position.y = groundY + 0.018;
+
+    splash.position.set(
+      position.x,
+      groundY + 0.018,
+      position.z
+    );
 
     const size = THREE.MathUtils.lerp(0.04, 0.13, strength);
     splash.scale.setScalar(size);
 
     splash.material.opacity = 0.38 * strength * state.intensity;
     splash.userData.life = splash.userData.maxLife;
-  }
-
-  function addSurfaceDrop(
-    position,
-    normal = new THREE.Vector3(0, 1, 0),
-    strength = 1
-  ) {
-    const drop = surfaceDrops.find((d) => !d.visible);
-    if (!drop) return;
-
-    drop.visible = true;
-    drop.position.copy(position);
-    drop.position.addScaledVector(normal, 0.018);
-
-    const s = THREE.MathUtils.lerp(0.65, 1.35, Math.random());
-    drop.scale.set(s, 0.45, s);
-
-    drop.material.opacity = 0.55 * strength;
-    drop.userData.life = drop.userData.maxLife;
   }
 
   function update(deltaTime, elapsedTime, stormState = {}) {
@@ -252,12 +207,16 @@ export function createRain({
       drop.position.z +=
         (windZ + drop.drift.y) * deltaTime * 1.8;
 
-    drop.position.x -= deltaTime * 1.2 * state.intensity;
+      /**
+       * Spostamento extra verso sinistra.
+       * Se non lo vuoi, metti 0.0.
+       */
+      drop.position.x -= deltaTime * 1.2 * state.intensity;
 
-    drop.position.y -=
-      drop.speed *
-      deltaTime *
-      THREE.MathUtils.lerp(0.4, 1.0, state.intensity);
+      drop.position.y -=
+        drop.speed *
+        deltaTime *
+        THREE.MathUtils.lerp(0.4, 1.0, state.intensity);
 
       const ix = i * 6;
 
@@ -275,17 +234,17 @@ export function createRain({
         drop.position.z - windZ * drop.length * 0.45;
 
       if (drop.position.y <= groundY) {
-      const distFromCenter = Math.sqrt(
-        drop.position.x * drop.position.x +
-        drop.position.z * drop.position.z
-      );
-
-      if (distFromCenter <= radius) {
         addSplash(drop.position, state.intensity);
+        resetDrop(i);
       }
 
-      resetDrop(i);
-    }
+      const distanceFromCenterSq =
+        drop.position.x * drop.position.x +
+        drop.position.z * drop.position.z;
+
+      if (distanceFromCenterSq > radius * radius * 1.35) {
+        resetDrop(i);
+      }
     }
 
     geometry.attributes.position.needsUpdate = true;
@@ -298,30 +257,13 @@ export function createRain({
       const t =
         1.0 - splash.userData.life / splash.userData.maxLife;
 
-      const grow = 1.0 + deltaTime * 3.8;
-      splash.scale.multiplyScalar(grow);
+      splash.scale.multiplyScalar(1.0 + deltaTime * 3.8);
 
       splash.material.opacity =
         (1.0 - t) * 0.36 * state.intensity;
 
       if (splash.userData.life <= 0) {
         splash.visible = false;
-      }
-    }
-
-    for (const drop of surfaceDrops) {
-      if (!drop.visible) continue;
-
-      drop.userData.life -= deltaTime;
-
-      const t =
-        1.0 - drop.userData.life / drop.userData.maxLife;
-
-      drop.material.opacity =
-        (1.0 - t) * 0.62 * state.intensity;
-
-      if (drop.userData.life <= 0) {
-        drop.visible = false;
       }
     }
   }
@@ -334,7 +276,6 @@ export function createRain({
     positions,
     drops,
     splashPool,
-    surfaceDrops,
     state,
     radius,
     height,
@@ -342,7 +283,6 @@ export function createRain({
     setActive,
     update,
     resetDrop,
-    addSplash,
-    addSurfaceDrop
+    addSplash
   };
 }

@@ -14,8 +14,8 @@ import { createPlant, animatePlant } from "./scene/createPlant.js";
 import { createStormController } from "./scene/createStormController.js";
 import { createRain } from "./scene/createRain.js";
 import { createWetGround } from "./scene/createWetGround.js";
-import { updateRainCollisions } from "./scene/rainCollision.js";
 import { createLightning } from "./scene/createLightning.js";
+import { createPlantDroplets } from "./scene/createPlantDroplets.js";
 
 const canvas = document.querySelector("#webgl");
 
@@ -40,6 +40,16 @@ const rain = createRain({
 });
 
 scene.add(rain.group);
+
+const plantDroplets = createPlantDroplets({
+  count: 500,
+  groundRadius: 4.75,
+  spawnHeight: 6.2,
+  groundY: 0.03,
+  windOffset: new THREE.Vector2(-0.75, 0.08)
+});
+
+scene.add(plantDroplets.group);
 
 const lightning = createLightning();
 scene.add(lightning.group);
@@ -181,9 +191,14 @@ const waterButton = document.querySelector("#waterButton");
 if (waterButton) {
   waterButton.addEventListener("click", () => {
     storm.toggle();
-    rain.setActive(storm.state.enabled);
 
-    waterButton.classList.toggle("active", storm.state.enabled);
+    rain.setActive(storm.state.enabled);
+    plantDroplets.setActive(storm.state.enabled);
+
+    waterButton.classList.toggle(
+      "active",
+      storm.state.enabled
+    );
 
     waterButton.textContent = storm.state.enabled
       ? "Stop Storm"
@@ -218,6 +233,32 @@ renderer.setPixelRatio(
 
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+
+/**
+ * Luce fredda che rende visibili i riflessi delle gocce.
+ * Non è “a caso”: serve perché l’acqua riflette la luce.
+ */
+const rainReflectionLight = new THREE.DirectionalLight(
+  0xbfdfff,
+  0.15
+);
+
+rainReflectionLight.position.set(-3.0, 5.5, 2.0);
+scene.add(rainReflectionLight);
+
+const lightningFillLight = new THREE.PointLight(
+  0xddeeff,
+  0,
+  12,
+  1.6
+);
+
+lightningFillLight.position.set(-2.8, 4.8, 1.6);
+scene.add(lightningFillLight);
 
 const controls = new OrbitControls(camera, canvas);
 
@@ -316,9 +357,17 @@ function animate() {
 
   storm.update(deltaTime, elapsedTime);
 
+  const isRaining =
+    storm.state.enabled &&
+    storm.state.rainIntensity > 0.05;
+
+  const lightningIntensity = lightning.update(
+    deltaTime,
+    isRaining
+  );
+
   /**
    * Atmosfera più scura quando piove.
-   * Non sovrascrive il night mode, ma lo combina.
    */
   if (!isNight) {
     const dayColor = new THREE.Color(0x87ceeb);
@@ -335,8 +384,20 @@ function animate() {
       1.0,
       0.45,
       storm.state.skyDarkness
-    );
+    ) + lightningIntensity * 0.65;
   }
+
+  /**
+   * Riflessi acqua.
+   */
+  rainReflectionLight.intensity =
+    THREE.MathUtils.lerp(
+      0.15,
+      0.65,
+      storm.state.rainIntensity
+    ) + lightningIntensity * 1.2;
+
+  lightningFillLight.intensity = lightningIntensity * 4.5;
 
   raycaster.setFromCamera(mouse, camera);
 
@@ -390,21 +451,25 @@ function animate() {
   }
 
   /**
-   * Pioggia + collisioni + terreno bagnato.
+   * Pioggia principale.
    */
   rain.update(deltaTime, elapsedTime, storm.state);
 
-  updateRainCollisions({
-    rainSystem: rain,
-    wetGround,
-    interactiveMeshes: interactiveLeafMeshes,
-    groundRadius: 4.75,
-    rainIntensity: storm.state.rainIntensity
+  /**
+   * Gocce fisiche che colpiscono foglie e petali.
+   */
+  plantDroplets.update({
+    deltaTime,
+    stormState: storm.state,
+    collisionMeshes: interactiveLeafMeshes,
+    lightningIntensity
   });
 
-  wetGround.update(deltaTime, storm.state.rainIntensity);
 
-  
+  wetGround.update(
+    deltaTime,
+    storm.state.rainIntensity
+  );
 
   animateGrass(grass, elapsedTime, cursorPosition);
   animateAirParticles(airParticles, elapsedTime, isNight);
@@ -441,44 +506,36 @@ function animate() {
       }
     }
   }
-const isRaining = storm.state.enabled && storm.state.rainIntensity > 0.05;
 
-const lightningIntensity = lightning.update(
-  deltaTime,
-  isRaining
-);
+  let hasGrowingPlant = false;
 
-let hasGrowingPlant = false;
+  for (const plant of plants) {
+    const currentFireflyPositions =
+      updateFireflyShaderPositionsForPlant(plant);
 
-for (const plant of plants) {
-  const currentFireflyPositions =
-    updateFireflyShaderPositionsForPlant(plant);
+    const isStillGrowing = animatePlant(
+      plant,
+      deltaTime,
+      elapsedTime,
+      growthSpeed,
+      leafCursorPosition,
+      currentFireflyPositions,
+      storm.state.rainIntensity,
+      lightningIntensity
+    );
 
-  const isStillGrowing = animatePlant(
-    plant,
-    deltaTime,
-    elapsedTime,
-    growthSpeed,
-    leafCursorPosition,
-    currentFireflyPositions,
-    storm.state.rainIntensity,
-    lightningIntensity
-  );
-
-  if (isStillGrowing) {
-    hasGrowingPlant = true;
+    if (isStillGrowing) {
+      hasGrowingPlant = true;
+    }
   }
-}
 
-if (growthControls) {
-  if (hasGrowingPlant) {
-    growthControls.classList.remove("hidden");
-  } else {
-    growthControls.classList.add("hidden");
+  if (growthControls) {
+    if (hasGrowingPlant) {
+      growthControls.classList.remove("hidden");
+    } else {
+      growthControls.classList.add("hidden");
+    }
   }
-}
-
-
 
   controls.update();
   renderer.render(scene, camera);
