@@ -1,9 +1,10 @@
 import * as THREE from "three";
 
+//How many fireflies influence the leaf shader
 const MAX_SHADER_FIREFLIES = 8;
 
 function createOrchidLeafGeometry({
-  length = 1.25,
+  length = 1.25, //max leaf length
   maxWidth = 0.34,
   lengthSegments = 42,
   widthSegments = 12
@@ -14,9 +15,11 @@ function createOrchidLeafGeometry({
   const heightFactors = [];
   const sideFactors = [];
 
+  //0 = base, 0.5 = center, 1 = top
   for (let yIndex = 0; yIndex <= lengthSegments; yIndex++) {
     const v = yIndex / lengthSegments;
 
+    //allows for the base and top to be of less width of the center
     const widthProfile =
       Math.sin(v * Math.PI) *
       (0.82 + 0.18 * Math.sin(v * Math.PI));
@@ -30,6 +33,7 @@ function createOrchidLeafGeometry({
       const x = side * halfWidth;
       const y = v * length;
 
+      //creating volume for the leaf
       const centerRidge = Math.sin(v * Math.PI) * 0.045;
       const edgeDrop = Math.abs(side) * 0.06;
       const tipDrop = Math.pow(v, 1.8) * 0.065;
@@ -85,6 +89,7 @@ function createOrchidLeafGeometry({
   return geometry;
 }
 
+
 export function createLeaf(options = {}) {
   if (typeof options === "number") {
     options = { color: options };
@@ -95,7 +100,7 @@ export function createLeaf(options = {}) {
     length = 1.25,
     maxWidth = 0.34,
 
-    windStrength = 0.025,
+    windStrength = 0.045,
     windSpeed = 0.9,
 
     interactionRadius = 0.42,
@@ -111,12 +116,15 @@ export function createLeaf(options = {}) {
 
   const leafColor = new THREE.Color(color);
 
+  //each leaf has a small random variation in color
   leafColor.offsetHSL(
     (Math.random() - 0.5) * 0.025,
     (Math.random() - 0.5) * 0.08,
     (Math.random() - 0.5) * 0.07
   );
 
+  //custom shader material
+  //allows control over shape, color, rain, wetness, lights...
   const material = new THREE.ShaderMaterial({
     side: THREE.DoubleSide,
     transparent: false,
@@ -126,10 +134,12 @@ export function createLeaf(options = {}) {
 
       uBaseColor: { value: leafColor },
 
+      //wind settings
       uWindStrength: { value: windStrength },
       uWindSpeed: { value: windSpeed },
       uWindPhase: { value: Math.random() * Math.PI * 2 },
 
+      //Cursor values, this allows deformations when cursor passes on top of the leaf
       uCursorLocalPosition: {
         value: new THREE.Vector3(999, 999, 999)
       },
@@ -144,45 +154,26 @@ export function createLeaf(options = {}) {
         value: interactionStrength
       },
 
+      //Fireflies settings
       uFireflyPositions: {
         value: Array.from(
           { length: MAX_SHADER_FIREFLIES },
           () => new THREE.Vector3(999, 999, 999)
         )
       },
-      uFireflyCount: {
-        value: 0
-      },
-      uFireflyStrength: {
-        value: 0.3
-      },
-      uFireflyRadius: {
-        value: 1.05
-      },
-      uFireflyColor: {
-        value: new THREE.Color(0xffd36a)
-      },
+      uFireflyCount: {value: 0},
+      uFireflyStrength: {value: 0.3},
+      uFireflyRadius: {value: 1.05},
+      uFireflyColor: {value: new THREE.Color(0xffd36a)},
 
-      uRainAmount: {
-        value: 0
-      },
-      uWetness: {
-        value: 0
-      },
-      uRainTime: {
-        value: 0
-      },
-      uRainLightDir: {
-        value: new THREE.Vector3(0.35, 1.0, 0.25).normalize()
-      },
+      //Wetness settings when raining
+      uRainAmount: {value: 0},
+      uWetness: {value: 0},
+      uRainTime: {value: 0},
+      uRainLightDir: {value: new THREE.Vector3(0.35, 1.0, 0.25).normalize()},
 
-      /**
-       * Fulmini.
-       * Arriva da main.js tramite animatePlant -> updateLeaf.
-       */
-      uLightningIntensity: {
-        value: 0
-      }
+      //Lightning settings (0 = no lighting, 1 = lightining)
+      uLightningIntensity: {value: 0}
     },
 
     vertexShader: `
@@ -499,7 +490,8 @@ export function updateLeaf(
   cursorPosition,
   fireflyPositions = [],
   rainAmount = 0,
-  lightningIntensity = 0
+  lightningIntensity = 0, 
+  stormWind = 0
 ) {
   const {
     material,

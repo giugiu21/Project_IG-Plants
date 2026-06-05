@@ -21,10 +21,10 @@ export function createAirParticles({ count = 350 } = {}) {
   geometry.setAttribute("aPhase", new THREE.BufferAttribute(phases, 1));
 
   const material = new THREE.PointsMaterial({
-    color: 0xfff1c2,
-    size: 0.035,
+    color: 0xefe5c1,
+    size: 0.025,
     transparent: true,
-    opacity: 0.45,
+    opacity: 0.35,
     depthWrite: false,
     blending: THREE.AdditiveBlending
   });

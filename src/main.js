@@ -19,16 +19,30 @@ import { createPlantDroplets } from "./scene/createPlantDroplets.js";
 
 const canvas = document.querySelector("#webgl");
 
+//Creating the Scena
 const { scene, ambientLight } = createScene();
 
 const { groundGroup, topSurface } = createGround(5);
 scene.add(groundGroup);
 
+//Grass Creation
+const grass = createGrass({
+  radius: 4.75,
+  bladeCount: 16000
+});
+scene.add(grass);
+
+const lightBeam = createLightBeam();
+scene.add(lightBeam.group);
+
+const airParticles = createAirParticles({ count: 420 });
+scene.add(airParticles);
+
+//Settings for Storm mode
 const wetGround = createWetGround({
   radius: 5,
   y: 0.024
 });
-
 scene.add(wetGround.mesh);
 
 const storm = createStormController();
@@ -38,17 +52,15 @@ const rain = createRain({
   radius: 4.75,
   height: 7.0
 });
-
 scene.add(rain.group);
 
 const plantDroplets = createPlantDroplets({
-  count: 500,
+  count: 200,
   groundRadius: 4.75,
   spawnHeight: 6.2,
   groundY: 0.03,
   windOffset: new THREE.Vector2(-0.75, 0.08)
 });
-
 scene.add(plantDroplets.group);
 
 const lightning = createLightning();
@@ -60,42 +72,31 @@ const mouse = new THREE.Vector2();
 const cursorPosition = new THREE.Vector3(999, 999, 999);
 const leafCursorPosition = new THREE.Vector3(999, 999, 999);
 
+//Seed Settings for Planting mode
 const floatingSeedPlane = new THREE.Plane(
   new THREE.Vector3(0, 1, 0),
   -1.6
 );
-
 const floatingSeedPosition = new THREE.Vector3();
-
-const grass = createGrass({
-  radius: 4.75,
-  bladeCount: 16000
-});
-
-scene.add(grass);
 
 const seedPlacement = createSeedPlacement();
 
 scene.add(seedPlacement.group);
 scene.add(seedPlacement.plantedSeeds);
 
+//Plant
 const plantsGroup = new THREE.Group();
 scene.add(plantsGroup);
 
 const plants = [];
 const interactiveLeafMeshes = [];
 
-const lightBeam = createLightBeam();
-scene.add(lightBeam.group);
 
-const airParticles = createAirParticles({ count: 420 });
-scene.add(airParticles);
-
+//Fireflies for night mode
 const firefliesSystem = createFireflies({
   count: 25,
   trailLength: 14
 });
-
 scene.add(firefliesSystem.group);
 
 const MAX_SHADER_FIREFLIES = 8;
@@ -105,6 +106,7 @@ const fireflyShaderPositions = Array.from(
   () => new THREE.Vector3(999, 999, 999)
 );
 
+//Settings for lighting at night when fireflies are close
 const plantWorldPosition = new THREE.Vector3();
 const fireflyWorldPosition = new THREE.Vector3();
 
@@ -153,9 +155,8 @@ function updateFireflyShaderPositionsForPlant(plant) {
   return fireflyShaderPositions;
 }
 
-/**
- * UI: day/night toggle.
- */
+//------------------ UI modelling-------------
+//Day and night toggle
 const nightToggle = document.querySelector("#nightToggle");
 
 if (nightToggle) {
@@ -170,9 +171,7 @@ if (nightToggle) {
   });
 }
 
-/**
- * UI: seed button.
- */
+// Plant seed button
 const seedButton = document.querySelector("#seedButton");
 
 if (seedButton) {
@@ -182,10 +181,7 @@ if (seedButton) {
   });
 }
 
-/**
- * UI: storm/rain button.
- * Puoi continuare a usare id="waterButton".
- */
+// Storm mode button
 const waterButton = document.querySelector("#waterButton");
 
 if (waterButton) {
@@ -211,6 +207,7 @@ const sizes = {
   height: window.innerHeight
 };
 
+//Camera settings
 const camera = new THREE.PerspectiveCamera(
   45,
   sizes.width / sizes.height,
@@ -221,6 +218,7 @@ const camera = new THREE.PerspectiveCamera(
 camera.position.set(0, 5.5, 8);
 scene.add(camera);
 
+//Renderer definition
 const renderer = new THREE.WebGLRenderer({
   canvas,
   antialias: true
@@ -238,10 +236,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 
-/**
- * Luce fredda che rende visibili i riflessi delle gocce.
- * Non è “a caso”: serve perché l’acqua riflette la luce.
- */
+// Cold lighting for droplets reflection
 const rainReflectionLight = new THREE.DirectionalLight(
   0xbfdfff,
   0.15
@@ -260,6 +255,7 @@ const lightningFillLight = new THREE.PointLight(
 lightningFillLight.position.set(-2.8, 4.8, 1.6);
 scene.add(lightningFillLight);
 
+//-----------Controls------------
 const controls = new OrbitControls(camera, canvas);
 
 controls.enableDamping = true;
@@ -295,9 +291,7 @@ window.addEventListener("mousemove", (event) => {
     -(event.clientY / window.innerHeight) * 2 + 1;
 });
 
-/**
- * Click per piantare il seme.
- */
+
 window.addEventListener("click", (event) => {
   if (!seedPlacement.state.isPlacing) return;
 
@@ -312,7 +306,8 @@ window.addEventListener("click", (event) => {
   }
 });
 
-window.addEventListener("keydown", (event) => {
+//Forse possono essere cancellati?
+/*window.addEventListener("keydown", (event) => {
   if (!seedPlacement.state.isPlacing) return;
 
   if (event.key === "Escape") {
@@ -330,7 +325,7 @@ window.addEventListener("keydown", (event) => {
       seedButton.classList.remove("active");
     }
   }
-});
+});*/
 
 const growthControls = document.querySelector("#growthControls");
 const growthSpeedSlider = document.querySelector("#growthSpeedSlider");
@@ -349,6 +344,7 @@ if (growthSpeedSlider) {
   });
 }
 
+//---------------Animations Settings-----------
 const clock = new THREE.Clock();
 
 function animate() {
@@ -356,6 +352,16 @@ function animate() {
   const elapsedTime = clock.getElapsedTime();
 
   storm.update(deltaTime, elapsedTime);
+
+  const baseGrassWind = 0.28;
+  const stormGrassWind = 0.45;
+
+  grass.material.uniforms.uWindStrength.value = THREE.MathUtils.lerp(
+    baseGrassWind,
+    stormGrassWind,
+    storm.state.rainIntensity
+  );
+
 
   const isRaining =
     storm.state.enabled &&
@@ -366,9 +372,7 @@ function animate() {
     isRaining
   );
 
-  /**
-   * Atmosfera più scura quando piove.
-   */
+  //Darker mode if it is raining during the day
   if (!isNight) {
     const dayColor = new THREE.Color(0x87ceeb);
     const stormColor = new THREE.Color(0x5f7482);
@@ -387,9 +391,7 @@ function animate() {
     ) + lightningIntensity * 0.65;
   }
 
-  /**
-   * Riflessi acqua.
-   */
+  //Droplets reflections 
   rainReflectionLight.intensity =
     THREE.MathUtils.lerp(
       0.15,
@@ -401,9 +403,7 @@ function animate() {
 
   raycaster.setFromCamera(mouse, camera);
 
-  /**
-   * Raycast foglie/petali.
-   */
+  // Raycast leaf petals.
   leafCursorPosition.set(999, 999, 999);
 
   if (interactiveLeafMeshes.length > 0) {
@@ -417,9 +417,7 @@ function animate() {
     }
   }
 
-  /**
-   * Preview seme sospeso.
-   */
+  //Suspended seed preview before planting
   if (seedPlacement.state.isPlacing) {
     raycaster.ray.intersectPlane(
       floatingSeedPlane,
@@ -431,9 +429,7 @@ function animate() {
     );
   }
 
-  /**
-   * Raycast sul ground.
-   */
+  //Ground Raycast
   const intersects = raycaster.intersectObject(topSurface);
 
   if (intersects.length > 0) {
@@ -450,14 +446,11 @@ function animate() {
     }
   }
 
-  /**
-   * Pioggia principale.
-   */
+  //Rain settings
   rain.update(deltaTime, elapsedTime, storm.state);
 
-  /**
-   * Gocce fisiche che colpiscono foglie e petali.
-   */
+  //Physical droplets hitting the leafs/petals
+
   plantDroplets.update({
     deltaTime,
     stormState: storm.state,
@@ -465,12 +458,13 @@ function animate() {
     lightningIntensity
   });
 
-
+//Updating the wet ground
   wetGround.update(
     deltaTime,
     storm.state.rainIntensity
   );
 
+  //Animations of the elements
   animateGrass(grass, elapsedTime, cursorPosition);
   animateAirParticles(airParticles, elapsedTime, isNight);
 
@@ -481,6 +475,7 @@ function animate() {
     interactiveLeafMeshes
   );
 
+  //Creating the plant when the seed drops
   const settledSeeds =
     seedPlacement.updateFallingSeeds(deltaTime);
 
@@ -509,7 +504,26 @@ function animate() {
 
   let hasGrowingPlant = false;
 
+  const stormWind = storm.state.enabled ? 1 : 0;
+
+  const baseLeafWind = 0.045;
+  const stormLeafWind = 0.25;
+
+  //Animation of the plant growth
   for (const plant of plants) {
+
+    const leafWind = THREE.MathUtils.lerp(
+      baseLeafWind,
+      stormLeafWind,
+      storm.state.rainIntensity
+    );
+
+    for (const leaf of plant.userData.leaves) {
+      if (leaf.userData?.material?.uniforms?.uWindStrength) {
+        leaf.userData.material.uniforms.uWindStrength.value = leafWind;
+      }
+    }
+
     const currentFireflyPositions =
       updateFireflyShaderPositionsForPlant(plant);
 
@@ -521,7 +535,8 @@ function animate() {
       leafCursorPosition,
       currentFireflyPositions,
       storm.state.rainIntensity,
-      lightningIntensity
+      lightningIntensity, 
+      stormWind
     );
 
     if (isStillGrowing) {
@@ -529,6 +544,7 @@ function animate() {
     }
   }
 
+  //UI control of the speed of growth slider
   if (growthControls) {
     if (hasGrowingPlant) {
       growthControls.classList.remove("hidden");
