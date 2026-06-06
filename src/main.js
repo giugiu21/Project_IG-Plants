@@ -17,6 +17,9 @@ import { createWetGround } from "./scene/createWetGround.js";
 import { createLightning } from "./scene/createLightning.js";
 import { createPlantDroplets } from "./scene/createPlantDroplets.js";
 
+import { createButterfly, animateButterfly } from "./scene/createButterfly.js";
+
+
 const canvas = document.querySelector("#webgl");
 
 //Creating the Scena
@@ -37,6 +40,7 @@ scene.add(lightBeam.group);
 
 const airParticles = createAirParticles({ count: 420 });
 scene.add(airParticles);
+
 
 //Settings for Storm mode
 const wetGround = createWetGround({
@@ -90,6 +94,13 @@ scene.add(plantsGroup);
 
 const plants = [];
 const interactiveLeafMeshes = [];
+
+//Butterfly for Day mode
+const butterflySystem = createButterfly({
+  radius: 4.0
+});
+
+scene.add(butterflySystem.group);
 
 
 //Fireflies for night mode
@@ -543,6 +554,18 @@ function animate() {
       hasGrowingPlant = true;
     }
   }
+
+    animateButterfly(
+    butterflySystem,
+    deltaTime,
+    elapsedTime,
+    {
+      isNight,
+      plants, 
+      isRaining
+    }
+  );
+
 
   //UI control of the speed of growth slider
   if (growthControls) {

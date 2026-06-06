@@ -1,7 +1,7 @@
 import * as THREE from "three";
 
 export function createWetGround({
-  radius = 5,
+  radius = 6,
   y = 0.018
 } = {}) {
   const geometry = new THREE.CircleGeometry(radius * 0.985, 160);
@@ -62,9 +62,9 @@ export function createWetGround({
         ripple *= puddleMask * 0.22;
 
         float alpha =
-          uWetness * 0.18 +
+          uWetness * 0.20 +
           puddleMask * 0.38 +
-          ripple * 0.16;
+          ripple * 0.20;
 
         vec3 wetColor = vec3(0.05, 0.075, 0.08);
         vec3 reflectedLight = vec3(0.45, 0.60, 0.68) * puddleMask * 0.25;
