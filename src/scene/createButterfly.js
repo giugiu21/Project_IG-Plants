@@ -5,13 +5,25 @@ const TMP_AVOIDANCE = new THREE.Vector3();
 const TMP_OBSTACLE = new THREE.Vector3();
 const TMP_AWAY = new THREE.Vector3();
 
+const DAY_BODY_COLOR = new THREE.Color(0x352517);
+const NIGHT_BODY_COLOR = new THREE.Color(0x1b2132);
+
+const DAY_EYE_COLOR = new THREE.Color(0x050403);
+const NIGHT_EYE_COLOR = new THREE.Color(0x000000);
+
+const DAY_WING_TINT = new THREE.Color(0xffffff);
+const NIGHT_WING_TINT = new THREE.Color(0xcc9b52a8);
+
+const DAY_VEIN_COLOR = new THREE.Color(0x0d0603);
+const NIGHT_VEIN_COLOR = new THREE.Color(0x05070d);
+
 function randomPointInAir(radius = 3.8) {
   const r = Math.sqrt(Math.random()) * radius;
   const a = Math.random() * Math.PI * 2;
 
   return new THREE.Vector3(
     Math.cos(a) * r,
-    1.1 + Math.random() * 1.6,
+    1.1 + Math.random() * 2.2,
     Math.sin(a) * r
   );
 }
@@ -186,6 +198,8 @@ function createWingVeins(side = 1, material) {
     [side * 0.28, y, 0.43]
   ]);
 
+  group.userData.material = veinMaterial;
+
   return group;
 }
 
@@ -241,40 +255,31 @@ function createButterflyMesh() {
 
   const textureLoader = new THREE.TextureLoader();
 
-  /**
-   * Usiamo la stessa immagine per entrambe le ali,
-   * ma una delle due viene specchiata.
-   *
-   * Il file deve stare in:
-   * public/textures/wings-monarch.jpg
-   */
   const rightWingTexture = textureLoader.load("/textures/wings-monarch.jpg");
   rightWingTexture.colorSpace = THREE.SRGBColorSpace;
 
   const leftWingTexture = textureLoader.load("/textures/wings-monarch.jpg");
   leftWingTexture.colorSpace = THREE.SRGBColorSpace;
 
-  /**
-   * Specchio orizzontale per l'ala sinistra.
-   */
-  rightWingTexture.wrapS = THREE.RepeatWrapping;
-  rightWingTexture.repeat.x = -1;
-  rightWingTexture.offset.x = 1;
+  leftWingTexture.wrapS = THREE.RepeatWrapping;
+  leftWingTexture.repeat.x = -1;
+  leftWingTexture.offset.x = 1;
 
   const bodyMaterial = new THREE.MeshStandardMaterial({
-    color: 0x17100a,
+    color: DAY_BODY_COLOR,
     roughness: 0.8,
     metalness: 0
   });
 
   const eyeMaterial = new THREE.MeshStandardMaterial({
-    color: 0x050403,
+    color: DAY_EYE_COLOR,
     roughness: 0.35,
     metalness: 0.05
   });
 
   const leftWingMaterial = new THREE.MeshStandardMaterial({
     map: leftWingTexture,
+    color: DAY_WING_TINT,
     roughness: 0.62,
     metalness: 0,
     side: THREE.DoubleSide
@@ -282,16 +287,26 @@ function createButterflyMesh() {
 
   const rightWingMaterial = new THREE.MeshStandardMaterial({
     map: rightWingTexture,
+    color: DAY_WING_TINT,
     roughness: 0.62,
     metalness: 0,
     side: THREE.DoubleSide
   });
 
   const veinMaterial = new THREE.LineBasicMaterial({
-    color: 0x0d0603,
+    color: DAY_VEIN_COLOR,
     transparent: true,
     opacity: 0.50
   });
+
+  butterfly.userData.materials = {
+    bodyMaterial,
+    eyeMaterial,
+    leftWingMaterial,
+    rightWingMaterial,
+    veinMaterial,
+    nightMix: 0
+  };
 
   const abdomen = new THREE.Mesh(
     new THREE.CapsuleGeometry(0.028, 0.19, 8, 14),
@@ -362,8 +377,14 @@ function createButterflyMesh() {
   leftWingGroup.add(leftWing);
   rightWingGroup.add(rightWing);
 
-  leftWingGroup.add(createWingVeins(-1, veinMaterial));
-  rightWingGroup.add(createWingVeins(1, veinMaterial));
+  const leftVeins = createWingVeins(-1, veinMaterial);
+  const rightVeins = createWingVeins(1, veinMaterial);
+
+  leftWingGroup.add(leftVeins);
+  rightWingGroup.add(rightVeins);
+
+  butterfly.userData.materials.leftVeinMaterial = leftVeins.userData.material;
+  butterfly.userData.materials.rightVeinMaterial = rightVeins.userData.material;
 
   leftWingGroup.rotation.z = THREE.MathUtils.degToRad(-4);
   rightWingGroup.rotation.z = THREE.MathUtils.degToRad(4);
@@ -412,7 +433,7 @@ function applyPlantAvoidance({
     if (plant.userData?.flower) {
       plant.userData.flower.getWorldPosition(TMP_OBSTACLE);
 
-      const flowerAvoidRadius = 0.7;
+      const flowerAvoidRadius = 0.3;
       const distance = position.distanceTo(TMP_OBSTACLE);
 
       if (distance < flowerAvoidRadius) {
@@ -588,7 +609,65 @@ export function animateButterfly(
 ) {
   const { butterfly, state } = butterflySystem;
 
-  const targetVisible = isNight || isRaining ? 0 : 1;
+  const materials = butterfly.userData.materials;
+
+  if (materials) {
+    const nightMix = THREE.MathUtils.lerp(
+      materials.nightMix || 0,
+      isNight ? 1 : 0,
+      deltaTime * 3.0
+    );
+
+    materials.nightMix = nightMix;
+
+    materials.bodyMaterial.color.lerpColors(
+      DAY_BODY_COLOR,
+      NIGHT_BODY_COLOR,
+      nightMix
+    );
+
+    materials.eyeMaterial.color.lerpColors(
+      DAY_EYE_COLOR,
+      NIGHT_EYE_COLOR,
+      nightMix
+    );
+
+    materials.leftWingMaterial.color.lerpColors(
+      DAY_WING_TINT,
+      NIGHT_WING_TINT,
+      nightMix
+    );
+
+    materials.rightWingMaterial.color.lerpColors(
+      DAY_WING_TINT,
+      NIGHT_WING_TINT,
+      nightMix
+    );
+
+    if (materials.leftVeinMaterial) {
+      materials.leftVeinMaterial.color.lerpColors(
+        DAY_VEIN_COLOR,
+        NIGHT_VEIN_COLOR,
+        nightMix
+      );
+    }
+
+    if (materials.rightVeinMaterial) {
+      materials.rightVeinMaterial.color.lerpColors(
+        DAY_VEIN_COLOR,
+        NIGHT_VEIN_COLOR,
+        nightMix
+      );
+    }
+
+    materials.leftWingMaterial.emissive.set(0x0a1028);
+    materials.rightWingMaterial.emissive.set(0x0a1028);
+
+    materials.leftWingMaterial.emissiveIntensity = 0.06 * nightMix;
+    materials.rightWingMaterial.emissiveIntensity = 0.06 * nightMix;
+  }
+
+  const targetVisible = isRaining ? 0 : 1;
 
   state.visibleStrength = THREE.MathUtils.lerp(
     state.visibleStrength,
@@ -678,8 +757,8 @@ export function animateButterfly(
     }
 
     const targetYaw = Math.atan2(
-      TMP_DIRECTION.x,
-      TMP_DIRECTION.z
+      -TMP_DIRECTION.x,
+      -TMP_DIRECTION.z
     );
 
     let angleDiff = targetYaw - butterfly.rotation.y;

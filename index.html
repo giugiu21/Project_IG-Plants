@@ -15,8 +15,34 @@
   </span>
 </label>
 <div id="ui">
-  <button id="waterButton">Start Storm</button>
+  <button id="stormButton">Start Storm</button>
+
   <button id="seedButton">Plant seed</button>
+
+<div id="flowerColorMenu" class="hidden">
+  <label for="flowerColorPicker">Choose Flower Color</label>
+
+  <div class="flower-color-row">
+    <input
+      id="flowerColorPicker"
+      type="color"
+      value="#f2a0c4"
+    />
+
+    <button id="resetFlowerColorButton" type="button">
+      Reset
+    </button>
+  </div>
+  <div class="flower-menu-actions">
+    <button id="confirmFlowerColorButton" type="button">
+      Confirm
+    </button>
+
+    <button id="cancelFlowerColorButton" type="button">
+      Exit
+    </button>
+  </div>
+</div>
 
   <div id="growthControls" class="hidden">
   <label>
@@ -39,6 +65,10 @@
       <span>2.5x</span>
     </div>
   </label>
+</div>
+<div id="switchModeHint" class="switch-mode hidden">
+    <h4>Press S to enter butterfly view</h4>
+
 </div>
 </div>
     <canvas id="webgl"></canvas>

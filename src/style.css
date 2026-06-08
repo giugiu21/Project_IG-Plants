@@ -157,7 +157,7 @@ body {
 }
 
 #seedButton,
-#waterButton {
+#stormButton {
   border: none;
   outline: none;
 
@@ -184,8 +184,9 @@ body {
     box-shadow 0.25s ease;
 }
 
+
 #seedButton:hover,
-#waterButton:hover{
+#stormButton:hover{
   transform: translateY(-1px);
   background: #ffffff;
 
@@ -194,15 +195,12 @@ body {
     inset 0 1px 1px rgba(255, 255, 255, 0.9);
 }
 
-#seedButton.active,
-#waterButton:active {
+#seedButton:active,
+#stormButton:active {
   background: #d7f7a8;
   color: #24421d;
 }
 
-/* -----------------------------
-   Growth controls
------------------------------ */
 /* -----------------------------
    Growth controls
 ----------------------------- */
@@ -341,6 +339,153 @@ body {
   background: #111111;
 }
 
+/* Butterfly view message*/
+.switch-mode {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  z-index: 20;
+
+  padding: 10px 18px;
+  border-radius: 999px;
+
+  background: rgba(10, 18, 28, 0.58);
+  color: #ffffff;
+  backdrop-filter: blur(10px);
+
+  font-family: system-ui, sans-serif;
+  pointer-events: none;
+  user-select: none;
+}
+
+.switch-mode h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 300;
+  letter-spacing: 0.02em;
+}
+
+/*Color picker*/
+#flowerColorMenu {
+  margin-top: -5px;
+  padding: 5px 5px 5px;
+
+  width: 107px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  background: rgba(255, 255, 255, 0.9);
+  color: #24421d;
+
+  border-radius: 9px;
+
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-top: none;
+
+  box-shadow: none;
+}
+
+#flowerColorMenu.hidden {
+  display: none;
+}
+
+
+#flowerColorMenu label {
+  font-size: 9px;
+  line-height: 1;
+  opacity: 0.68;
+  margin-bottom: 1px;
+}
+
+.flower-color-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+#flowerColorPicker {
+  width: 26px;
+  height: 26px;
+  font-weight: bold;
+
+  margin-left: 10%;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+
+  background: white;
+  cursor: pointer;
+}
+
+#flowerColorPicker::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+#flowerColorPicker::-webkit-color-swatch {
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+}
+
+#flowerColorPicker::-moz-color-swatch {
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+}
+
+#resetFlowerColorButton {
+  padding: 5px 8px;
+
+  border: none;
+  border-radius: 9px;
+
+  font-size: xx-small;
+  font-weight: bolder;
+
+  color:  #24421d;
+
+  background: rgb(255, 255, 255);
+
+  cursor: pointer;
+}
+
+.flower-menu-actions {
+  display: flex;
+  gap: 6px;
+}
+
+#confirmFlowerColorButton,
+#cancelFlowerColorButton {
+  flex: 1;
+
+  padding: 5px 7px;
+
+  border: none;
+  border-radius: 9px;
+  font-size: xx-small;
+  font-weight: bolder;
+
+  color:  #24421d;
+
+
+  color: inherit;
+  background: rgb(255, 255, 255);
+
+  cursor: pointer;
+}
+
+#confirmFlowerColorButton:hover,
+#cancelFlowerColorButton:hover,
+#resetFlowerColorButton:hover {
+  background: #d7f7a8;
+}
+
+#confirmFlowerColorButton:active,
+#cancelFlowerColorButton:active,
+#resetFlowerColorButton:active {
+  transform: scale(0.96);
+}
 /* Stato nascosto */
 .hidden {
   display: none !important;

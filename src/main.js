@@ -184,30 +184,93 @@ if (nightToggle) {
 
 // Plant seed button
 const seedButton = document.querySelector("#seedButton");
+const flowerColorPicker = document.querySelector("#flowerColorPicker");
+const resetFlowerColorButton = document.querySelector("#resetFlowerColorButton");
+const confirmFlowerColorButton = document.querySelector("#confirmFlowerColorButton");
+const cancelFlowerColorButton = document.querySelector("#cancelFlowerColorButton");
+const flowerColorMenu = document.querySelector("#flowerColorMenu");
+const DEFAULT_FLOWER_COLOR_HEX = "#f2a0c4";
+
+let selectedFlowerColor = 0xf2a0c4;
 
 if (seedButton) {
   seedButton.addEventListener("click", () => {
-    seedPlacement.startPlacement();
+    if (flowerColorMenu) {
+      flowerColorMenu.classList.remove("hidden");
+    }
+    if (flowerColorPicker) {
+      flowerColorPicker.value = DEFAULT_FLOWER_COLOR_HEX;
+    }
+
+    selectedFlowerColor = 0xf2a0c4;
+
     seedButton.classList.add("active");
   });
 }
 
-// Storm mode button
-const waterButton = document.querySelector("#waterButton");
+if (resetFlowerColorButton) {
+  resetFlowerColorButton.addEventListener("click", () => {
+    if (flowerColorPicker) {
+      flowerColorPicker.value = DEFAULT_FLOWER_COLOR_HEX;
+    }
 
-if (waterButton) {
-  waterButton.addEventListener("click", () => {
+    selectedFlowerColor = 0xf2a0c4;
+  });
+}
+
+if (confirmFlowerColorButton) {
+  confirmFlowerColorButton.addEventListener("click", () => {
+    selectedFlowerColor = flowerColorPicker
+      ? Number(flowerColorPicker.value.replace("#", "0x"))
+      : 0xf2a0c4;
+
+    if (flowerColorMenu) {
+      flowerColorMenu.classList.add("hidden");
+    }
+
+    seedPlacement.startPlacement();
+  });
+}
+
+if (cancelFlowerColorButton) {
+  cancelFlowerColorButton.addEventListener("click", () => {
+    if (flowerColorMenu) {
+      flowerColorMenu.classList.add("hidden");
+    }
+
+    if (flowerColorPicker) {
+      flowerColorPicker.value = DEFAULT_FLOWER_COLOR_HEX;
+    }
+
+    selectedFlowerColor = DEFAULT_FLOWER_COLOR;
+
+    if (seedButton) {
+      seedButton.classList.remove("active");
+    }
+
+    if (seedPlacement.state.isPlacing) {
+      seedPlacement.clearGroundTarget();
+      seedPlacement.state.isPlacing = false;
+    }
+  });
+}
+
+// Storm mode button
+const stormButton = document.querySelector("#stormButton");
+
+if (stormButton) {
+  stormButton.addEventListener("click", () => {
     storm.toggle();
 
     rain.setActive(storm.state.enabled);
     plantDroplets.setActive(storm.state.enabled);
 
-    waterButton.classList.toggle(
+    stormButton.classList.toggle(
       "active",
       storm.state.enabled
     );
 
-    waterButton.textContent = storm.state.enabled
+    stormButton.textContent = storm.state.enabled
       ? "Stop Storm"
       : "Start Storm";
   });
@@ -228,6 +291,18 @@ const camera = new THREE.PerspectiveCamera(
 
 camera.position.set(0, 5.5, 8);
 scene.add(camera);
+
+//Butterfly view
+let isButterflyView = false;
+
+const normalCameraPosition = new THREE.Vector3();
+const normalControlsTarget = new THREE.Vector3();
+
+const butterflyCameraOffset = new THREE.Vector3(0, 0, -0.16);
+const butterflyLookOffset = new THREE.Vector3(0, -0.5, -0.9);
+
+const butterflyCameraWorldPosition = new THREE.Vector3();
+const butterflyLookWorldPosition = new THREE.Vector3();
 
 //Renderer definition
 const renderer = new THREE.WebGLRenderer({
@@ -317,30 +392,40 @@ window.addEventListener("click", (event) => {
   }
 });
 
-//Forse possono essere cancellati?
-/*window.addEventListener("keydown", (event) => {
-  if (!seedPlacement.state.isPlacing) return;
+window.addEventListener("keydown", (event) => {
+  if (event.key.toLowerCase() !== "s") return;
 
-  if (event.key === "Escape") {
-    seedPlacement.cancelPlacement();
+  isButterflyView = !isButterflyView;
 
-    if (seedButton) {
-      seedButton.classList.remove("active");
-    }
+  if (isButterflyView) {
+    normalCameraPosition.copy(camera.position);
+    normalControlsTarget.copy(controls.target);
+
+    camera.fov = 45;
+    camera.updateProjectionMatrix();
+
+    controls.enabled = false;
+  } else {
+    camera.position.copy(normalCameraPosition);
+    controls.target.copy(normalControlsTarget);
+
+    camera.fov = 45;
+    camera.updateProjectionMatrix();
+
+    controls.enabled = true;
+    controls.update();
   }
+  updateSwitchModeHint(
+    storm.state.enabled && storm.state.rainIntensity > 0.05
+  );
+});
 
-  if (event.key === "Enter" || event.key === " ") {
-    const plantedSeed = seedPlacement.dropSeed();
 
-    if (plantedSeed && seedButton) {
-      seedButton.classList.remove("active");
-    }
-  }
-});*/
 
 const growthControls = document.querySelector("#growthControls");
 const growthSpeedSlider = document.querySelector("#growthSpeedSlider");
 const growthSpeedValue = document.querySelector("#growthSpeedValue");
+const switchModeHint = document.querySelector("#switchModeHint");
 
 let growthSpeed = 1;
 
@@ -355,6 +440,74 @@ if (growthSpeedSlider) {
   });
 }
 
+function updateSwitchModeHint(isRaining) {
+  if (!switchModeHint) return;
+
+  switchModeHint.classList.toggle("hidden", isRaining);
+
+  const text = switchModeHint.querySelector("h4");
+
+  if (text) {
+    text.textContent = isButterflyView
+      ? "Press S to exit butterfly view"
+      : "Press S to enter butterfly view";
+  }
+}
+
+function updateButterflyCamera(deltaTime) {
+  if (!isButterflyView) return;
+
+  const butterfly = butterflySystem?.butterfly;
+
+  const isRaining =
+    storm.state.enabled &&
+    storm.state.rainIntensity > 0.05;
+
+  if (isRaining) {
+    isButterflyView = false;
+
+    camera.position.copy(normalCameraPosition);
+    controls.target.copy(normalControlsTarget);
+
+    camera.fov = 45;
+    camera.updateProjectionMatrix();
+
+    controls.enabled = true;
+    controls.update();
+
+    updateSwitchModeHint(isRaining);
+
+    return;
+  }
+
+  if (!butterfly || !butterfly.visible) {
+    return;
+  }
+
+  /**
+   * Posizione camera rispetto alla farfalla.
+   */
+  butterflyCameraWorldPosition
+    .copy(butterflyCameraOffset)
+    .applyQuaternion(butterfly.quaternion)
+    .add(butterfly.position);
+
+  /**
+   * Punto verso cui guardare.
+   */
+  butterflyLookWorldPosition
+    .copy(butterflyLookOffset)
+    .applyQuaternion(butterfly.quaternion)
+    .add(butterfly.position);
+
+  camera.position.lerp(
+    butterflyCameraWorldPosition,
+    1.0 - Math.exp(-deltaTime * 8.0)
+  );
+
+  camera.lookAt(butterflyLookWorldPosition);
+}
+
 //---------------Animations Settings-----------
 const clock = new THREE.Clock();
 
@@ -363,7 +516,6 @@ function animate() {
   const elapsedTime = clock.getElapsedTime();
 
   storm.update(deltaTime, elapsedTime);
-
   const baseGrassWind = 0.28;
   const stormGrassWind = 0.45;
 
@@ -377,6 +529,8 @@ function animate() {
   const isRaining =
     storm.state.enabled &&
     storm.state.rainIntensity > 0.05;
+
+  updateSwitchModeHint(isRaining);
 
   const lightningIntensity = lightning.update(
     deltaTime,
@@ -491,7 +645,9 @@ function animate() {
     seedPlacement.updateFallingSeeds(deltaTime);
 
   for (const settled of settledSeeds) {
-    const plant = createPlant(settled.position);
+    const plant = createPlant(settled.position, {
+      flowerColor: selectedFlowerColor
+    });
 
     plants.push(plant);
     plantsGroup.add(plant);
@@ -547,7 +703,8 @@ function animate() {
       currentFireflyPositions,
       storm.state.rainIntensity,
       lightningIntensity, 
-      stormWind
+      stormWind,
+      isNight
     );
 
     if (isStillGrowing) {
@@ -555,7 +712,7 @@ function animate() {
     }
   }
 
-    animateButterfly(
+  animateButterfly(
     butterflySystem,
     deltaTime,
     elapsedTime,
@@ -576,7 +733,12 @@ function animate() {
     }
   }
 
-  controls.update();
+  if (isButterflyView) {
+    updateButterflyCamera(deltaTime);
+  } else {
+    controls.update();
+  }
+
   renderer.render(scene, camera);
 
   requestAnimationFrame(animate);

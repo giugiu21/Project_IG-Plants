@@ -43,7 +43,10 @@ function createStem(height = 2.0) {
   return stem;
 }
 
-export function createPlant(position) {
+export function createPlant(position, options = {}) {
+  const {
+    flowerColor = 0xf2a0c4
+  } = options;
   const group = new THREE.Group();
 
   group.position.copy(position);
@@ -119,13 +122,16 @@ export function createPlant(position) {
   windMovement.add(leafBack);
 
   const flower = createFlower({
-    petalColor: 0xf2a0c4,
+    //petalColor: 0xf2a0c4,
+    petalColor: flowerColor,
+    sepalColor: flowerColor,
     throatColor: 0xffd35a
   });
 
   flower.position.set(0.03, 1.5, 0.02);
   flower.rotation.set(-0.18, 0.15, 0.05);
   windMovement.add(flower);
+
 
   group.userData = {
     growth: 0, //growth starts at 0
@@ -236,7 +242,8 @@ export function animatePlant(
   fireflyPositions = [],
   rainAmount = 0,
   lightningIntensity = 0,
-  stormWind = 0
+  stormWind = 0,
+  isNight = false
 ) {
   const currentGrowth = plant.userData.growth;
 
@@ -279,6 +286,7 @@ export function animatePlant(
 
   data.windMovement.rotation.x =
     data.baseWindRotation.x + swayX;
+
 
   for (const leaf of data.leaves) {
     updateLeaf(

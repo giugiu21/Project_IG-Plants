@@ -435,17 +435,17 @@ function createPetal({
   return petal;
 }
 
-function createBud() {
+function createBud(petalColor) {
   const bud = new THREE.Group();
 
   const budCoreMaterial = new THREE.MeshStandardMaterial({
-    color: 0xd96f9f,
+    color: petalColor,
     roughness: 0.75,
     metalness: 0.0
   });
 
   const budTipMaterial = new THREE.MeshStandardMaterial({
-    color: 0xe889b3,
+    color: petalColor,
     roughness: 0.78,
     metalness: 0.0
   });
@@ -481,11 +481,11 @@ function createBud() {
     budCoreMaterial,
     budTipMaterial,
 
-    startCoreColor: new THREE.Color(0xd96f9f),
-    startTipColor: new THREE.Color(0xe889b3),
+    startCoreColor: new THREE.Color(petalColor),
+    startTipColor: new THREE.Color(petalColor),
 
-    finalCoreColor: new THREE.Color(0xffd35a),
-    finalTipColor: new THREE.Color(0x9a315f)
+    finalCoreColor: new THREE.Color(petalColor),
+    finalTipColor: new THREE.Color(petalColor)
   };
 
   return bud;
@@ -565,7 +565,7 @@ export function createFlower({
 } = {}) {
   const flower = new THREE.Group();
 
-  const bud = createBud();
+  const bud = createBud(petalColor);
   flower.add(bud);
 
   const dorsalSepal = createPetal({
