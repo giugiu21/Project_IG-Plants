@@ -12,7 +12,7 @@ const DAY_EYE_COLOR = new THREE.Color(0x050403);
 const NIGHT_EYE_COLOR = new THREE.Color(0x000000);
 
 const DAY_WING_TINT = new THREE.Color(0xffffff);
-const NIGHT_WING_TINT = new THREE.Color(0xcc9b52a8);
+const NIGHT_WING_TINT = new THREE.Color(0xcc9b5298);
 
 const DAY_VEIN_COLOR = new THREE.Color(0x0d0603);
 const NIGHT_VEIN_COLOR = new THREE.Color(0x05070d);
@@ -23,7 +23,7 @@ function randomPointInAir(radius = 3.8) {
 
   return new THREE.Vector3(
     Math.cos(a) * r,
-    1.1 + Math.random() * 2.2,
+    1.1 + Math.random() * 1.8,
     Math.sin(a) * r
   );
 }

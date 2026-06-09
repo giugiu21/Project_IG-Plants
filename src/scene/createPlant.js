@@ -295,7 +295,8 @@ export function animatePlant(
       cursorPosition,
       fireflyPositions,
       rainAmount,
-      lightningIntensity
+      lightningIntensity, 
+      isNight
     );
   }
 
@@ -304,7 +305,8 @@ export function animatePlant(
     elapsedTime,
     cursorPosition,
     fireflyPositions,
-    lightningIntensity
+    lightningIntensity, 
+    isNight
   );
 
   return data.growth < 1;

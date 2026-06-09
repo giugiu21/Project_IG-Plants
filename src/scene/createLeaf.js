@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { darkenColor } from "../utils/darkenColor.js";
 
 //How many fireflies influence the leaf shader
 const MAX_SHADER_FIREFLIES = 8;
@@ -123,6 +124,8 @@ export function createLeaf(options = {}) {
     (Math.random() - 0.5) * 0.07
   );
 
+  const leafNightColor = darkenColor(leafColor);
+
   //custom shader material
   //allows control over shape, color, rain, wetness, lights...
   const material = new THREE.ShaderMaterial({
@@ -133,6 +136,8 @@ export function createLeaf(options = {}) {
       uTime: { value: 0 },
 
       uBaseColor: { value: leafColor },
+      uNightColor: { value: leafNightColor },
+      uNightAmount: { value: 0 },
 
       //wind settings
       uWindStrength: { value: windStrength },
@@ -269,6 +274,8 @@ export function createLeaf(options = {}) {
 
     fragmentShader: `
       uniform vec3 uBaseColor;
+      uniform vec3 uNightColor;
+      uniform float uNightAmount;
 
       uniform vec3 uFireflyPositions[8];
       uniform int uFireflyCount;
@@ -296,9 +303,15 @@ export function createLeaf(options = {}) {
         float h = vHeightFactor;
         float side = vSideFactor;
 
+        vec3 baseColor = mix(
+          uBaseColor,
+          uNightColor,
+          uNightAmount
+        );
+
         vec3 color = mix(
-          uBaseColor * 0.62,
-          uBaseColor * 1.18,
+          baseColor * 0.62,
+          baseColor * 1.18,
           h
         );
 
@@ -491,7 +504,8 @@ export function updateLeaf(
   fireflyPositions = [],
   rainAmount = 0,
   lightningIntensity = 0, 
-  stormWind = 0
+  stormWind = 0, 
+  isNight = false
 ) {
   const {
     material,
@@ -504,6 +518,14 @@ export function updateLeaf(
   material.uniforms.uRainTime.value = elapsedTime;
   material.uniforms.uRainAmount.value = rainAmount;
   material.uniforms.uLightningIntensity.value = lightningIntensity;
+
+  if (material.uniforms.uNightAmount) {
+      material.uniforms.uNightAmount.value = THREE.MathUtils.lerp(
+        material.uniforms.uNightAmount.value,
+        isNight ? 1 : 0,
+        0.04
+      );
+  }
 
   const currentWetness = leafMesh.userData.wetness || 0;
 

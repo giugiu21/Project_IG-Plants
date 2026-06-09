@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { darkenColor } from "../utils/darkenColor.js";
 
 const MAX_SHADER_FIREFLIES = 8;
 
@@ -140,6 +141,8 @@ function createPetal({
     (Math.random() - 0.5) * 0.06
   );
 
+  const baseNightColor = darkenColor(baseColor);
+
   const material = new THREE.ShaderMaterial({
     side: THREE.DoubleSide,
     transparent: false,
@@ -148,6 +151,8 @@ function createPetal({
       uTime: { value: 0 },
 
       uBaseColor: { value: baseColor },
+      uNightColor: { value: baseNightColor },
+      uNightAmount: { value: 0 },
       uThroatColor: { value: new THREE.Color(throatColor) },
       uSpotColor: { value: new THREE.Color(spotColor) },
       uIsLabellum: { value: type === "labellum" ? 1 : 0 },
@@ -273,6 +278,8 @@ function createPetal({
 
     fragmentShader: `
       uniform vec3 uBaseColor;
+      uniform vec3 uNightColor;
+      uniform float uNightAmount;
       uniform vec3 uThroatColor;
       uniform vec3 uSpotColor;
       uniform float uIsLabellum;
@@ -295,9 +302,15 @@ function createPetal({
         float h = vHeightFactor;
         float side = vSideFactor;
 
+        vec3 baseColor = mix(
+          uBaseColor,
+          uNightColor,
+          uNightAmount
+        );
+
         vec3 color = mix(
-          uBaseColor * 0.82,
-          uBaseColor * 1.18,
+          baseColor * 0.82,
+          baseColor * 1.18,
           h
         );
 
@@ -496,7 +509,8 @@ function updatePetal(
   elapsedTime,
   cursorPosition,
   fireflyPositions = [],
-  lightningIntensity = 0
+  lightningIntensity = 0,
+  isNight = false
 ) {
   const {
     material,
@@ -505,6 +519,14 @@ function updatePetal(
   } = petal.userData;
 
   material.uniforms.uTime.value = elapsedTime;
+
+  if (material.uniforms.uNightAmount) {
+    material.uniforms.uNightAmount.value = THREE.MathUtils.lerp(
+      material.uniforms.uNightAmount.value,
+      isNight ? 1 : 0,
+      0.04
+    );
+  }
 
   if (material.uniforms.uLightningIntensity) {
     material.uniforms.uLightningIntensity.value = lightningIntensity;
@@ -738,7 +760,8 @@ export function updateFlower(
   elapsedTime,
   cursorPosition,
   fireflyPositions = [],
-  lightningIntensity = 0
+  lightningIntensity = 0, 
+  isNight = false
 ) {
   if (!flower || !flower.userData.petals) return;
 
@@ -748,7 +771,8 @@ export function updateFlower(
       elapsedTime,
       cursorPosition,
       fireflyPositions,
-      lightningIntensity
+      lightningIntensity, 
+      isNight
     );
   }
 }
