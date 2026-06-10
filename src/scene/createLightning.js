@@ -1,20 +1,34 @@
 import * as THREE from "three";
+import { smoothstep } from "../utils/smoothStep.js";
+
+/*This file handle the lightining strike during the storm mode
+    It creates:
+      - zig-zag geometry fot the strike
+      - intense directional lightning 
+      - point lightning to create the flash effect
+      - update() function to decide when to strike the next lighting
+      - triggerStrike() function to force the new strike
+
+*/
 
 function createLightningBoltGeometry() {
   const points = [];
 
+  //choosing the starting point
   const start = new THREE.Vector3(
     THREE.MathUtils.randFloatSpread(5),
     7,
     THREE.MathUtils.randFloatSpread(3) - 1
   );
 
+  //choosing the end point
   const end = new THREE.Vector3(
     start.x + THREE.MathUtils.randFloatSpread(1.6),
     2.2,
     start.z + THREE.MathUtils.randFloatSpread(1.2)
   );
 
+  //dividing the strike in 9 segments to better compute the movement from start to end
   const segments = 9;
 
   for (let i = 0; i <= segments; i++) {
@@ -22,6 +36,7 @@ function createLightningBoltGeometry() {
 
     const point = new THREE.Vector3().lerpVectors(start, end, t);
 
+    //to add irregularity depends on t
     const chaos = 0.28 * (1.0 - Math.abs(t - 0.5));
     point.x += THREE.MathUtils.randFloatSpread(chaos);
     point.z += THREE.MathUtils.randFloatSpread(chaos);
@@ -37,6 +52,7 @@ function createLightningBoltGeometry() {
 export function createLightning() {
   const group = new THREE.Group();
 
+  //new directional light of the flash
   const flashLight = new THREE.DirectionalLight(0xcfe6ff, 0);
   flashLight.position.set(-3, 7, 4);
   flashLight.target.position.set(0, 0, 0);
@@ -44,6 +60,7 @@ export function createLightning() {
   group.add(flashLight);
   group.add(flashLight.target);
 
+  //to add a more blurred lighting in between
   const ambientFlash = new THREE.PointLight(0xbfdcff, 0, 12, 1.4);
   ambientFlash.position.set(0, 4.5, 2);
   group.add(ambientFlash);
@@ -61,6 +78,7 @@ export function createLightning() {
     boltMaterial
   );
 
+  //visibility state
   bolt.visible = false;
   group.add(bolt);
 
@@ -77,6 +95,8 @@ export function createLightning() {
     isStriking: false
   };
 
+
+  //manually triggering the next lighting strike
   function triggerStrike() {
     bolt.geometry.dispose();
     bolt.geometry = createLightningBoltGeometry();
@@ -97,7 +117,9 @@ export function createLightning() {
     ambientFlash.position.copy(flashLight.position);
   }
 
+
   function update(deltaTime, isStormActive = false) {
+    //if we don't have a storm we don't animate
     if (!isStormActive) {
       state.timer = 0;
       state.intensity = THREE.MathUtils.lerp(state.intensity, 0, 0.18);
@@ -168,12 +190,5 @@ export function createLightning() {
   };
 }
 
-function smoothstep(edge0, edge1, x) {
-  const t = THREE.MathUtils.clamp(
-    (x - edge0) / (edge1 - edge0),
-    0,
-    1
-  );
 
-  return t * t * (3 - 2 * t);
-}
+

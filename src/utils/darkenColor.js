@@ -1,5 +1,6 @@
 import * as THREE from "three";
 
+//This function allows the darkening of a color, used in night mode
 export function darkenColor(color) {
   const c = new THREE.Color(color);
 

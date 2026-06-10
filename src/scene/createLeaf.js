@@ -1,6 +1,13 @@
 import * as THREE from "three";
 import { darkenColor } from "../utils/darkenColor.js";
 
+/*This file containes the logic behind each leaf with its geometry, animation and interaction
+    3 main functions:
+      - creating the custom geometry fro the leaf
+      - creating a custom shader material written with a vertex shader and fragment shader
+      - updates the leaf according to time
+*/
+
 //How many fireflies influence the leaf shader
 const MAX_SHADER_FIREFLIES = 8;
 
@@ -11,7 +18,7 @@ function createOrchidLeafGeometry({
   widthSegments = 12
 } = {}) {
   const vertices = [];
-  const uvs = [];
+  //const uvs = [];
   const indices = [];
   const heightFactors = [];
   const sideFactors = [];
@@ -42,7 +49,6 @@ function createOrchidLeafGeometry({
       const z = centerRidge - edgeDrop - tipDrop;
 
       vertices.push(x, y, z);
-      uvs.push(u, v);
       heightFactors.push(v);
       sideFactors.push(side);
     }
@@ -64,21 +70,21 @@ function createOrchidLeafGeometry({
 
   const geometry = new THREE.BufferGeometry();
 
+  //Creating the custom shader attributes: each leaf has:
+
+  //position (x,y,z) in space
   geometry.setAttribute(
     "position",
     new THREE.Float32BufferAttribute(vertices, 3)
   );
 
-  geometry.setAttribute(
-    "uv",
-    new THREE.Float32BufferAttribute(uvs, 2)
-  );
-
+  //a height in space
   geometry.setAttribute(
     "aHeightFactor",
     new THREE.Float32BufferAttribute(heightFactors, 1)
   );
 
+  // right side
   geometry.setAttribute(
     "aSideFactor",
     new THREE.Float32BufferAttribute(sideFactors, 1)
@@ -135,6 +141,7 @@ export function createLeaf(options = {}) {
     uniforms: {
       uTime: { value: 0 },
 
+      //color settings
       uBaseColor: { value: leafColor },
       uNightColor: { value: leafNightColor },
       uNightAmount: { value: 0 },
@@ -181,6 +188,9 @@ export function createLeaf(options = {}) {
       uLightningIntensity: {value: 0}
     },
 
+    /*Vertex shader: modifies the position of the object
+    Handles interaction (wind/cursor interaction)
+        here it is necessary for: wind deformation and cursor deformation */
     vertexShader: `
       uniform float uTime;
 
@@ -272,6 +282,19 @@ export function createLeaf(options = {}) {
       }
     `,
 
+    /*Fragment Shader: handles color changes in the pixels
+    Here (changes from day to night, light changes)
+        Base color:
+          -day/night
+          -vertical nuance
+          -center highlight
+          -veins on both sides of the leaf (fading near tip and base)
+          - edges darkening
+
+        Lightning effects:
+          - firefly glow for the closest 8
+          - lightning flash effect
+    */
     fragmentShader: `
       uniform vec3 uBaseColor;
       uniform vec3 uNightColor;
@@ -519,6 +542,7 @@ export function updateLeaf(
   material.uniforms.uRainAmount.value = rainAmount;
   material.uniforms.uLightningIntensity.value = lightningIntensity;
 
+  //sending to the shader the right color depending on day/night mode
   if (material.uniforms.uNightAmount) {
       material.uniforms.uNightAmount.value = THREE.MathUtils.lerp(
         material.uniforms.uNightAmount.value,
@@ -533,6 +557,7 @@ export function updateLeaf(
     ? Math.max(currentWetness, rainAmount * 0.45)
     : 0;
 
+  //sending to the shader
   leafMesh.userData.wetness = THREE.MathUtils.lerp(
     currentWetness,
     rainWetnessTarget,
@@ -548,6 +573,7 @@ export function updateLeaf(
     cursorPosition.y < 900 &&
     cursorPosition.z < 900;
 
+  //If we have a cursor interaction we send it to the shader
   if (cursorIsValid) {
     targetLocalCursor.copy(cursorPosition);
 
@@ -572,6 +598,7 @@ export function updateLeaf(
   material.uniforms.uCursorInfluence.value =
     leafGroup.userData.cursorInfluence;
 
+  //sending to the shader also the 8 closest fireflies
   for (let i = 0; i < MAX_SHADER_FIREFLIES; i++) {
     if (fireflyPositions[i]) {
       material.uniforms.uFireflyPositions.value[i].copy(

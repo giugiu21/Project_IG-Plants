@@ -22,9 +22,10 @@ import { createButterfly, animateButterfly } from "./scene/createButterfly.js";
 
 const canvas = document.querySelector("#webgl");
 
-//Creating the Scena
+//Creating the Scene
 const { scene, ambientLight } = createScene();
 
+//adding the ground
 const { groundGroup, topSurface } = createGround(5);
 scene.add(groundGroup);
 
@@ -35,20 +36,20 @@ const grass = createGrass({
 });
 scene.add(grass);
 
+//adding the light beam
 const lightBeam = createLightBeam();
 scene.add(lightBeam.group);
 
+//adding the air particles
 const airParticles = createAirParticles({ count: 420 });
 scene.add(airParticles);
 
-
-//Settings for Storm mode
+//-------Settings for Storm mode----------
 const wetGround = createWetGround({
   radius: 5,
   y: 0.024
 });
 scene.add(wetGround.mesh);
-
 const storm = createStormController();
 
 const rain = createRain({
@@ -70,7 +71,27 @@ scene.add(plantDroplets.group);
 const lightning = createLightning();
 scene.add(lightning.group);
 
-const raycaster = new THREE.Raycaster();
+// Cold lighting for droplets reflection
+const rainReflectionLight = new THREE.DirectionalLight(
+  0xbfdfff,
+  0.15
+);
+
+rainReflectionLight.position.set(-3.0, 5.5, 2.0);
+scene.add(rainReflectionLight);
+
+const lightningFillLight = new THREE.PointLight(
+  0xddeeff,
+  0,
+  12,
+  1.6
+);
+
+lightningFillLight.position.set(-2.8, 4.8, 1.6);
+scene.add(lightningFillLight);
+
+//Adding a raycaster and mouse/cursor for interaction/movement in the environment
+const raycaster = new THREE.Raycaster(); //allows the collision of objects
 const mouse = new THREE.Vector2();
 
 const cursorPosition = new THREE.Vector3(999, 999, 999);
@@ -95,13 +116,11 @@ scene.add(plantsGroup);
 const plants = [];
 const interactiveLeafMeshes = [];
 
-//Butterfly for Day mode
+//Butterfly
 const butterflySystem = createButterfly({
   radius: 4.0
 });
-
 scene.add(butterflySystem.group);
-
 
 //Fireflies for night mode
 const firefliesSystem = createFireflies({
@@ -110,7 +129,7 @@ const firefliesSystem = createFireflies({
 });
 scene.add(firefliesSystem.group);
 
-const MAX_SHADER_FIREFLIES = 8;
+const MAX_SHADER_FIREFLIES = 8; //this is used for the interactive custom glow on leaves and flowers
 
 const fireflyShaderPositions = Array.from(
   { length: MAX_SHADER_FIREFLIES },
@@ -123,6 +142,7 @@ const fireflyWorldPosition = new THREE.Vector3();
 
 let isNight = false;
 
+//Returns the positions of the 8 closest fireflies to the plants
 function updateFireflyShaderPositionsForPlant(plant) {
   if (!isNight) {
     return [];
@@ -276,12 +296,13 @@ if (stormButton) {
   });
 }
 
+//----------Camera settings-------
+//normal view
 const sizes = {
   width: window.innerWidth,
   height: window.innerHeight
 };
 
-//Camera settings
 const camera = new THREE.PerspectiveCamera(
   45,
   sizes.width / sizes.height,
@@ -304,7 +325,7 @@ const butterflyLookOffset = new THREE.Vector3(0, -0.5, -0.9);
 const butterflyCameraWorldPosition = new THREE.Vector3();
 const butterflyLookWorldPosition = new THREE.Vector3();
 
-//Renderer definition
+//----------Renderer definition--------
 const renderer = new THREE.WebGLRenderer({
   canvas,
   antialias: true
@@ -321,25 +342,6 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
-
-// Cold lighting for droplets reflection
-const rainReflectionLight = new THREE.DirectionalLight(
-  0xbfdfff,
-  0.15
-);
-
-rainReflectionLight.position.set(-3.0, 5.5, 2.0);
-scene.add(rainReflectionLight);
-
-const lightningFillLight = new THREE.PointLight(
-  0xddeeff,
-  0,
-  12,
-  1.6
-);
-
-lightningFillLight.position.set(-2.8, 4.8, 1.6);
-scene.add(lightningFillLight);
 
 //-----------Controls------------
 const controls = new OrbitControls(camera, canvas);
@@ -376,7 +378,6 @@ window.addEventListener("mousemove", (event) => {
   mouse.y =
     -(event.clientY / window.innerHeight) * 2 + 1;
 });
-
 
 window.addEventListener("click", (event) => {
   if (!seedPlacement.state.isPlacing) return;
@@ -419,8 +420,6 @@ window.addEventListener("keydown", (event) => {
     storm.state.enabled && storm.state.rainIntensity > 0.05
   );
 });
-
-
 
 const growthControls = document.querySelector("#growthControls");
 const growthSpeedSlider = document.querySelector("#growthSpeedSlider");
@@ -484,21 +483,11 @@ function updateButterflyCamera(deltaTime) {
     return;
   }
 
-  /**
-   * Posizione camera rispetto alla farfalla.
-   */
-  butterflyCameraWorldPosition
-    .copy(butterflyCameraOffset)
-    .applyQuaternion(butterfly.quaternion)
-    .add(butterfly.position);
+  //Camera's positions in butterfly reference frame
+  butterflyCameraWorldPosition.copy(butterflyCameraOffset).applyQuaternion(butterfly.quaternion).add(butterfly.position);
 
-  /**
-   * Punto verso cui guardare.
-   */
-  butterflyLookWorldPosition
-    .copy(butterflyLookOffset)
-    .applyQuaternion(butterfly.quaternion)
-    .add(butterfly.position);
+  //look out point
+  butterflyLookWorldPosition.copy(butterflyLookOffset).applyQuaternion(butterfly.quaternion).add(butterfly.position);
 
   camera.position.lerp(
     butterflyCameraWorldPosition,

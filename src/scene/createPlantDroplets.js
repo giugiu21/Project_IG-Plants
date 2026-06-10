@@ -1,13 +1,22 @@
 import * as THREE from "three";
+import { randomPointInCircle } from "../utils/randomPointInCircle.js";
 
-/*Le droplets cadono dall’alto in world space.
-Quando colpiscono foglie/petali, si salvano la posizione in local space della mesh colpita, quindi restano attaccate anche se la pianta si muove col vento.
-Scivolano seguendo la gravità proiettata sulla superficie e poi, quando arrivano al bordo, si staccano e cadono.*/
+/*Droplets fall from the sky above in the environment:
+    Main objects: 
+      - falling drops (more oblung in shape)
+      - surface drops (they stick to leaves/petals and fall according to gravity)
 
+    Main functions:
+    - when colliding with leaves/petals they save their position the local space of the collided mesh and stay attached
+    - they slowly drop following gravity, when they arrive at the edge of the leaf/petal they detach and falll off
 
-const DOWN = new THREE.Vector3(0, -1, 0);
-const DEFAULT_NORMAL = new THREE.Vector3(0, 1, 0);
+*/
 
+//Constants
+const DOWN = new THREE.Vector3(0, -1, 0); //Downwards direction
+const DEFAULT_NORMAL = new THREE.Vector3(0, 1, 0); //Upwards direction
+
+//Vectors
 const TMP_ORIGIN = new THREE.Vector3();
 const TMP_DIR = new THREE.Vector3();
 const TMP_WORLD_NORMAL = new THREE.Vector3();
@@ -18,17 +27,9 @@ const TMP_LOCAL_NORMAL = new THREE.Vector3();
 const TMP_LOCAL_TANGENT = new THREE.Vector3();
 const TMP_MATRIX = new THREE.Matrix4();
 
-function randomPointInDisk(radius) {
-  const r = Math.sqrt(Math.random()) * radius;
-  const a = Math.random() * Math.PI * 2;
-
-  return {
-    x: Math.cos(a) * r,
-    z: Math.sin(a) * r
-  };
-}
 
 function createDropletMaterial() {
+  //realistical mesh for the water droplets
   return new THREE.MeshPhysicalMaterial({
     color: 0xdff6ff,
 
@@ -56,28 +57,27 @@ function createDropletMaterial() {
   });
 }
 
+//When the drops are falling they are more oblung in shape
 function createFallingDropGeometry() {
   const geometry = new THREE.SphereGeometry(0.018, 12, 8);
 
-  /**
-   * Goccia allungata durante la caduta.
-   */
+  // Oblung shape
   geometry.scale(0.72, 1.9, 0.72);
 
   return geometry;
 }
 
+//When the drops attach themselves to a surface they become flatter
 function createSurfaceDropGeometry() {
   const geometry = new THREE.SphereGeometry(0.026, 18, 12);
 
-  /**
-   * Goccia schiacciata quando si appoggia sulla foglia/petalo.
-   */
+  //flatter shape
   geometry.scale(1.0, 0.32, 1.0);
 
   return geometry;
 }
 
+//Creating highlights for a more realistic water look
 function createTinyHighlight() {
   const canvas = document.createElement("canvas");
   canvas.width = 48;
@@ -107,6 +107,8 @@ function createTinyHighlight() {
   return texture;
 }
 
+
+//Creating the actual droplets
 export function createPlantDroplets({
   count = 90,
   groundRadius = 4.75,
@@ -115,8 +117,9 @@ export function createPlantDroplets({
   windOffset = new THREE.Vector2(-0.7, 0.08)
 } = {}) {
   const group = new THREE.Group();
-  group.visible = false;
+  group.visible = false; //visibility only if in storm mode
 
+  //Allows the detection of collisions with the surfaces
   const raycaster = new THREE.Raycaster();
   raycaster.far = spawnHeight + 1.0;
 
@@ -134,7 +137,8 @@ export function createPlantDroplets({
   group.add(fallingGroup);
   group.add(surfaceGroup);
 
-  function createFallingDrop() {
+  //Creating the drops that only fall down
+function createFallingDrop() {
     const material = createDropletMaterial();
 
     material.opacity = 0.48;
@@ -170,6 +174,7 @@ export function createPlantDroplets({
     return mesh;
   }
 
+  //Creating the droplets that attach to surfaces
   function createSurfaceDrop() {
     const material = createDropletMaterial();
 
@@ -199,28 +204,19 @@ export function createPlantDroplets({
     mesh.add(highlight);
 
     mesh.userData = {
-      /**
-       * Dati di attacco alla superficie.
-       */
       attachedMesh: null,
       isAttached: false,
       isFallingAfterDetach: false,
 
-      /**
-       * Coordinate locali sulla foglia/petalo.
-       */
+      //Local coordinates to leaves and petals
       localPosition: new THREE.Vector3(),
       localNormal: new THREE.Vector3(0, 1, 0),
       localVelocity: new THREE.Vector3(),
 
-      /**
-       * Dati world quando la goccia si stacca.
-       */
+      //velocity when the droplets detach
       worldVelocity: new THREE.Vector3(),
 
-      /**
-       * Dati visivi / vita.
-       */
+      //visual data
       normal: new THREE.Vector3(0, 1, 0),
       life: 0,
       maxLife: 1,
@@ -230,8 +226,15 @@ export function createPlantDroplets({
     return mesh;
   }
 
-  function resetFallingDrop(drop, forceTop = false) {
-    const p = randomPointInDisk(groundRadius);
+  /*Reset function for falling droplets
+      Used: 
+        - at the beginning
+        - when the droplets touch the ground
+        - when the droplets are outside the rain area
+        - after hitting a leaf or petal
+  */
+function resetFallingDrop(drop, forceTop = false) {
+    const p = randomPointInCircle(groundRadius);
 
     drop.position.set(
       p.x,
@@ -251,40 +254,33 @@ export function createPlantDroplets({
     drop.visible = true;
   }
 
-  function activateSurfaceDrop(hit, sourceVelocity, rainIntensity = 1) {
+  //used when a droplet hits a petal or leaf
+function activateSurfaceDrop(hit, sourceVelocity, rainIntensity = 1) {
+    // we find a visible surface drop already present in the scene , we don't create a new one
     const surfaceDrop = surfaceDrops.find((drop) => !drop.visible);
     if (!surfaceDrop) return;
 
+    //attaching the droplet to the mesh
     const data = surfaceDrop.userData;
     const hitObject = hit.object;
 
     surfaceDrop.visible = true;
 
-    /**
-     * Da ora questa goccia è attaccata alla mesh colpita.
-     * Questo è il punto fondamentale: se la foglia si muove,
-     * la goccia seguirà la sua trasformazione.
-     */
+    //if the surface moves the droplet also moves with it
     data.attachedMesh = hitObject;
     data.isAttached = true;
     data.isFallingAfterDetach = false;
 
-    /**
-     * Salviamo il punto di impatto in local space della foglia/petalo.
-     */
+    //Saving the impact point in the local space of the object
     data.localPosition.copy(hit.point);
     hitObject.worldToLocal(data.localPosition);
 
-    /**
-     * hit.face.normal è in local space della geometria.
-     */
+    //finding the normal direction in the local space of the object
     data.localNormal
       .copy(hit.face?.normal || DEFAULT_NORMAL)
       .normalize();
 
-    /**
-     * Normale world per orientare visivamente la goccia.
-     */
+    //converting the local normal in world normal
     TMP_WORLD_NORMAL
       .copy(data.localNormal)
       .transformDirection(hitObject.matrixWorld)
@@ -292,21 +288,18 @@ export function createPlantDroplets({
 
     data.normal.copy(TMP_WORLD_NORMAL);
 
-    /**
-     * Posizione world iniziale.
-     */
+    //initial world position
     surfaceDrop.position.copy(data.localPosition);
     hitObject.localToWorld(surfaceDrop.position);
     surfaceDrop.position.addScaledVector(TMP_WORLD_NORMAL, 0.014);
 
+    //Rotating the droplet so that its vertical axis is aligned with the surface normal direction
     surfaceDrop.quaternion.setFromUnitVectors(
       DEFAULT_NORMAL,
       TMP_WORLD_NORMAL
     );
 
-    /**
-     * Forma leggermente irregolare.
-     */
+    //irregular droplet shape
     const size = 0.65 + Math.random() * 0.85;
 
     surfaceDrop.scale.set(
@@ -315,35 +308,22 @@ export function createPlantDroplets({
       size * (0.85 + Math.random() * 0.35)
     );
 
-    /**
-     * Velocità locale iniziale.
-     * Parte quasi ferma, poi viene accelerata dalla gravità proiettata.
-     */
+    //At first the droplet is very slow and then later the velocity increases based on gravity
     data.localVelocity.set(
       0,
       -0.025 - Math.random() * 0.035,
       0
     );
 
-    /**
-     * Vita della goccia sulla superficie.
-     */
+    //how long the droplet lives in the surface
     data.life =
       THREE.MathUtils.lerp(1.1, 2.8, rainIntensity) +
       Math.random() * 1.4;
 
     data.maxLife = data.life;
-
-    /**
-     * Bagna la mesh colpita.
-     * Il tuo createLeaf.js legge questa proprietà come uWetness.
-     */
-    hitObject.userData.wetness = Math.min(
-      1,
-      (hitObject.userData.wetness || 0) + 0.22
-    );
   }
 
+  //creating the droplets
   for (let i = 0; i < count; i++) {
     const fallingDrop = createFallingDrop();
 
@@ -360,7 +340,8 @@ export function createPlantDroplets({
     surfaceDrops.push(surfaceDrop);
   }
 
-  function updateAttachedSurfaceDrop({
+
+function updateAttachedSurfaceDrop({
     drop,
     deltaTime,
     rainIntensity,
@@ -374,11 +355,7 @@ export function createPlantDroplets({
       return;
     }
 
-    /**
-     * Convertiamo la gravità world nello spazio locale della mesh.
-     * Così la goccia scivola correttamente anche se foglia/petalo
-     * ruotano o oscillano col vento.
-     */
+    //converting the world gravity to the local mesh space
     TMP_LOCAL_GRAVITY.set(0, -1, 0);
 
     TMP_MATRIX.copy(mesh.matrixWorld).invert();
@@ -386,11 +363,7 @@ export function createPlantDroplets({
 
     TMP_LOCAL_NORMAL.copy(data.localNormal).normalize();
 
-    /**
-     * Proiezione della gravità sul piano tangente.
-     * Questa è la parte che fa scorrere la goccia sulla superficie,
-     * invece di farla attraversare.
-     */
+    //Projection of the gravity in the tangent plane --- this allows the slow sliding of the droplets
     TMP_LOCAL_TANGENT
       .copy(TMP_LOCAL_GRAVITY)
       .addScaledVector(
@@ -410,23 +383,16 @@ export function createPlantDroplets({
       );
     }
 
-    /**
-     * Attrito superficiale.
-     * Più vicino a 1 = scivola più a lungo.
-     */
+    //Adding friction (close to 1 means a longer sliding)
     data.localVelocity.multiplyScalar(0.985);
 
-    /**
-     * Aggiorna posizione locale.
-     */
+    //updating the local position
     data.localPosition.addScaledVector(
       data.localVelocity,
       deltaTime
     );
 
-    /**
-     * Converti local -> world per renderizzare.
-     */
+    //Conversion of local to world position for rendering
     drop.position.copy(data.localPosition);
     mesh.localToWorld(drop.position);
 
@@ -442,14 +408,7 @@ export function createPlantDroplets({
       TMP_WORLD_NORMAL
     );
 
-    /**
-     * Limiti semplificati.
-     * Per le foglie local y è circa 0..length.
-     * Per petali/labello sono valori simili ma più piccoli.
-     *
-     * Quando la goccia supera questi limiti,
-     * si stacca e ricomincia a cadere in world space.
-     */
+    //Limits to define when the droplet detaches from the leaves/petals
     const detach =
       data.localPosition.y < -0.06 ||
       data.localPosition.y > 1.5 ||
@@ -459,9 +418,7 @@ export function createPlantDroplets({
       detachSurfaceDrop(drop);
     }
 
-    /**
-     * Se resta attaccata, continua a bagnare un po' la mesh.
-     */
+    //if the droplet is attached then we change the wetness of the mesh
     if (data.isAttached && mesh.userData) {
       mesh.userData.wetness = Math.min(
         1,
@@ -476,17 +433,15 @@ export function createPlantDroplets({
     });
   }
 
-  function detachSurfaceDrop(drop) {
+//Detaches the droplet
+function detachSurfaceDrop(drop) {
     const data = drop.userData;
 
     data.isAttached = false;
     data.attachedMesh = null;
     data.isFallingAfterDetach = true;
 
-    /**
-     * Quando si stacca, riparte in world space.
-     * Usiamo un po' della velocità locale, ma soprattutto gravità.
-     */
+    //when it detaches is in world space
     data.worldVelocity.set(
       data.localVelocity.x * 0.45,
       -0.55 - Math.random() * 0.45,
@@ -494,7 +449,8 @@ export function createPlantDroplets({
     );
   }
 
-  function updateDetachedSurfaceDrop({
+//updates the falling of the detached droplet
+function updateDetachedSurfaceDrop({
     drop,
     deltaTime,
     rainIntensity,
@@ -502,7 +458,7 @@ export function createPlantDroplets({
   }) {
     const data = drop.userData;
 
-    data.worldVelocity.y -= 1.8 * deltaTime;
+    data.worldVelocity.y -= 1.8 * deltaTime; //applying gravity
 
     drop.position.addScaledVector(
       data.worldVelocity,
@@ -515,12 +471,14 @@ export function createPlantDroplets({
       lightningIntensity
     });
 
+    //when it reaches the ground it disappears
     if (drop.position.y <= groundY) {
       hideSurfaceDrop(drop);
     }
   }
 
-  function updateDropMaterial({
+//updates the droplets material based on the lightning strikes and the life left
+function updateDropMaterial({
     drop,
     rainIntensity,
     lightningIntensity
@@ -548,18 +506,15 @@ export function createPlantDroplets({
         (0.22 + rainIntensity * 0.3 + lightningIntensity * 0.85);
     }
 
-    /**
-     * Leggera riduzione nel tempo.
-     * Non usiamo multiplyScalar aggressivo per evitare che la scala
-     * collassi troppo velocemente frame dopo frame.
-     */
+    //shrinks slowly with time 
     const shrink = THREE.MathUtils.lerp(1.0, 0.55, t);
 
     drop.scale.x = THREE.MathUtils.lerp(drop.scale.x, shrink, 0.015);
     drop.scale.z = THREE.MathUtils.lerp(drop.scale.z, shrink, 0.015);
   }
 
-  function hideSurfaceDrop(drop) {
+  //hiding the droplets -- used when they fall to the ground
+function hideSurfaceDrop(drop) {
     const data = drop.userData;
 
     drop.visible = false;
@@ -577,7 +532,8 @@ export function createPlantDroplets({
     }
   }
 
-  function update({
+//updating the whole system
+function update({
     deltaTime,
     stormState,
     collisionMeshes = [],
@@ -588,19 +544,18 @@ export function createPlantDroplets({
 
     group.visible = rainIntensity > 0.02;
 
+    //if there's no rain don't do anything
     if (rainIntensity <= 0.02) {
       return;
     }
 
-    const windDirection =
-      stormState?.windDirection || new THREE.Vector2(-0.75, 0.1);
+    //computing the wind settings
+    const windDirection = stormState?.windDirection || new THREE.Vector2(-0.75, 0.1);
 
     const windX = windDirection.x * windStrength * 0.55;
     const windZ = windDirection.y * windStrength * 0.55;
 
-    /**
-     * Gocce che cadono dall'alto in world space.
-     */
+    //drops are falling constantly
     for (const drop of fallingDrops) {
       const velocity = drop.userData.velocity;
 
@@ -614,25 +569,20 @@ export function createPlantDroplets({
         deltaTime * THREE.MathUtils.lerp(0.45, 1.0, rainIntensity)
       );
 
-      /**
-       * Orienta la goccia nella direzione della velocità.
-       */
-      TMP_DIR.copy(velocity);
+      TMP_DIR.copy(velocity); //oriented in velocity's direction
 
       if (TMP_DIR.lengthSq() > 0.0001) {
         TMP_DIR.normalize();
         drop.quaternion.setFromUnitVectors(DOWN, TMP_DIR);
       }
 
-      /**
-       * Raycast dal punto precedente a quello attuale.
-       * Serve per rilevare collisioni anche se la goccia è veloce.
-       */
+      //Raycast settings
       TMP_ORIGIN.copy(TMP_POS);
       TMP_DIR.subVectors(drop.position, TMP_POS);
 
       const travelDistance = TMP_DIR.length();
 
+      //raycast from old position to new position
       if (travelDistance > 0.0001 && collisionMeshes.length > 0) {
         TMP_DIR.normalize();
 
@@ -644,6 +594,7 @@ export function createPlantDroplets({
           false
         );
 
+        //if we find a collision
         if (hits.length > 0) {
           activateSurfaceDrop(
             hits[0],
@@ -656,10 +607,12 @@ export function createPlantDroplets({
         }
       }
 
+      //if it has fallen on to the ground
       if (drop.position.y <= groundY) {
         resetFallingDrop(drop, true);
       }
 
+      //reset if outside of the area 
       const d2 =
         drop.position.x * drop.position.x +
         drop.position.z * drop.position.z;
@@ -668,6 +621,7 @@ export function createPlantDroplets({
         resetFallingDrop(drop, true);
       }
 
+      //changing the refraction of light based on the lighting
       const flashBoost = lightningIntensity * 0.75;
 
       drop.material.opacity =
@@ -688,9 +642,7 @@ export function createPlantDroplets({
       }
     }
 
-    /**
-     * Gocce attaccate a foglie/petali o staccate che cadono via.
-     */
+    //Surface drops settings
     for (const drop of surfaceDrops) {
       if (!drop.visible) continue;
 
@@ -698,6 +650,7 @@ export function createPlantDroplets({
 
       data.life -= deltaTime;
 
+      //updates when attached
       if (data.isAttached) {
         updateAttachedSurfaceDrop({
           drop,
@@ -705,6 +658,7 @@ export function createPlantDroplets({
           rainIntensity,
           lightningIntensity
         });
+        //update the falling if detached
       } else if (data.isFallingAfterDetach) {
         updateDetachedSurfaceDrop({
           drop,
@@ -713,14 +667,15 @@ export function createPlantDroplets({
           lightningIntensity
         });
       }
-
+      //if it is dead hide it
       if (data.life <= 0) {
         hideSurfaceDrop(drop);
       }
     }
   }
 
-  function setActive(active) {
+//set active/inactive
+function setActive(active) {
     group.visible = active;
   }
 

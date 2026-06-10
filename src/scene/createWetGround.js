@@ -1,11 +1,22 @@
 import * as THREE from "three";
 
+/*
+  This file creates a transparent wet-ground overlay used during storm mode.
+
+  Placed slightly above the normal ground and uses a custom shader to simulate:
+    - darker wet soil
+    - puddle areas
+    - subtle animated ripples
+    - reflected light on wet surfaces
+*/
+
 export function createWetGround({
   radius = 6,
   y = 0.018
 } = {}) {
   const geometry = new THREE.CircleGeometry(radius * 0.985, 160);
 
+  //custom shader
   const material = new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
@@ -13,10 +24,13 @@ export function createWetGround({
 
     uniforms: {
       uTime: { value: 0 },
-      uWetness: { value: 0 },
-      uPuddleAmount: { value: 0 }
+      uWetness: { value: 0 }, //0 = dry ground, 1 = wet ground
+      uPuddleAmount: { value: 0 } // 0 = no puddles, 1 = puddles visible
     },
 
+    /* Vertex shader: modifies the position of the object 
+    Handles interaction (puddles generated based on uv positions)
+    */
     vertexShader: `
       varying vec2 vUv;
       varying vec3 vPosition;
@@ -32,6 +46,14 @@ export function createWetGround({
       }
     `,
 
+    /* Fragment Shader: handles color changes in the pixels
+        It creates:
+          - puddle masks
+          - animated ripples
+          - darker wet color
+          - reflected light
+          - transparency
+    */
     fragmentShader: `
       uniform float uTime;
       uniform float uWetness;
@@ -76,9 +98,10 @@ export function createWetGround({
     `
   });
 
+  //creating the final mesh
   const mesh = new THREE.Mesh(geometry, material);
 
-  mesh.rotation.x = -Math.PI / 2;
+  mesh.rotation.x = -Math.PI / 2; //since the ground is on the XY plane
   mesh.position.y = y;
   mesh.renderOrder = 3;
 
@@ -87,27 +110,34 @@ export function createWetGround({
     puddleAmount: 0
   };
 
+  //updating the ground in real time
   function update(deltaTime, rainIntensity) {
+
+    //depends on the intensity of the rain
     const targetWetness = rainIntensity > 0.05 ? 1 : 0;
     const targetPuddles = rainIntensity > 0.45 ? 1 : 0;
 
+    //smooth transition from dry to wet ground
     state.wetness = THREE.MathUtils.lerp(
       state.wetness,
       targetWetness,
       deltaTime * (rainIntensity > 0.05 ? 0.9 : 0.16)
     );
 
+    //smooth transition from no puddles to many puddles
     state.puddleAmount = THREE.MathUtils.lerp(
       state.puddleAmount,
       targetPuddles,
       deltaTime * (rainIntensity > 0.45 ? 0.35 : 0.07)
     );
 
+    //updating the uniforms
     material.uniforms.uTime.value += deltaTime;
     material.uniforms.uWetness.value = state.wetness;
     material.uniforms.uPuddleAmount.value = state.puddleAmount;
   }
 
+  //increases wetness and the puddle amount
   function addImpact() {
     state.wetness = Math.min(1, state.wetness + 0.015);
     state.puddleAmount = Math.min(1, state.puddleAmount + 0.004);

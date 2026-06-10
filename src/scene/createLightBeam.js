@@ -1,5 +1,7 @@
 import * as THREE from "three";
 
+/*This file creates the light beam on top of the environment */
+
 function createBeamTexture(size = 256) {
   const canvas = document.createElement("canvas");
   canvas.width = size;
@@ -32,6 +34,7 @@ function createBeamTexture(size = 256) {
 export function createLightBeam() {
   const group = new THREE.Group();
 
+  //Creating a new directional light
   const sunlight = new THREE.DirectionalLight(0xffe4a8, 1.7);
   sunlight.position.set(-3, 6, 3);
   sunlight.target.position.set(0, 0, 0);
@@ -84,9 +87,11 @@ group.add(beam);
   };
 }
 
+//This function updates the beam's intensity for day/night mode
 export function updateLightBeam(lightBeam, isNight) {
   const { sunlight, beam } = lightBeam;
 
+  //if it is nignt the beam is less intense
   if (isNight) {
     sunlight.color.set(0x8faaff);
     sunlight.intensity = 0.35;

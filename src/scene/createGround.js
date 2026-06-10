@@ -1,9 +1,12 @@
 import * as THREE from "three";
 
+/*This file contains the logic behind the main ground enviroment */
+
 function rand(min, max) {
   return min + Math.random() * (max - min);
 }
 
+//we apply to the ground the .jpg texture
 function loadSoilTexture() {
   const textureLoader = new THREE.TextureLoader();
 
@@ -16,13 +19,14 @@ function loadSoilTexture() {
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
 
-  // Aumenta o diminuisci questi valori per cambiare la scala della texture
+  // Regulates the scale of the texture
   texture.repeat.set(2.5, 2.5);
 
   return texture;
 }
 
 function createTopSurface(radius, soilTexture) {
+  //Top surface is just a circle
   const geometry = new THREE.CircleGeometry(radius * 0.985, 180);
 
   const position = geometry.attributes.position;
@@ -34,7 +38,7 @@ function createTopSurface(radius, soilTexture) {
     const dist = Math.sqrt(vertex.x * vertex.x + vertex.y * vertex.y);
     const normalized = dist / (radius * 0.985);
 
-    // Superficie leggermente bombata e irregolare
+    // We create a dome shape
     const dome = (1.0 - normalized) * 0.045;
     const roughness = rand(-0.012, 0.012);
 
@@ -46,6 +50,7 @@ function createTopSurface(radius, soilTexture) {
   position.needsUpdate = true;
   geometry.computeVertexNormals();
 
+  //applying the .jpg texture
   const material = new THREE.MeshStandardMaterial({
     map: soilTexture,
     color: 0xffffff,
@@ -63,6 +68,8 @@ function createTopSurface(radius, soilTexture) {
   return top;
 }
 
+
+//creating the body to have a 3D object in the scene
 function createIslandBody(radius, soilTexture) {
   const geometry = new THREE.CylinderGeometry(
     radius,
@@ -91,6 +98,7 @@ function createIslandBody(radius, soilTexture) {
   return island;
 }
 
+//The edge is darker
 function createDarkEdge(radius) {
   const geometry = new THREE.RingGeometry(radius * 0.88, radius * 1.0, 180);
 
@@ -112,6 +120,7 @@ function createDarkEdge(radius) {
   return edge;
 }
 
+//adding all the components together to create a realistic ground
 export function createGround(radius = 5) {
   const groundGroup = new THREE.Group();
 

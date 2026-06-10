@@ -1,10 +1,13 @@
 import * as THREE from "three";
 
+/*Creating and animating the fireflies in the night mode*/
+
 const fireflyWorldPosition = new THREE.Vector3();
 const obstacleWorldPosition = new THREE.Vector3();
 const obstacleWorldScale = new THREE.Vector3();
 const pushDirection = new THREE.Vector3();
 
+//creating the fireflies glow light
 function createGlowTexture(size = 128) {
   const canvas = document.createElement("canvas");
   canvas.width = size;
@@ -12,6 +15,7 @@ function createGlowTexture(size = 128) {
 
   const ctx = canvas.getContext("2d");
 
+  //radial gradient for the light glow
   const gradient = ctx.createRadialGradient(
     size / 2,
     size / 2,
@@ -35,6 +39,8 @@ function createGlowTexture(size = 128) {
   return texture;
 }
 
+
+//Creating the fireflies
 function createSingleFirefly(glowTexture, trailLength = 12) {
   const group = new THREE.Group();
 
@@ -67,7 +73,7 @@ function createSingleFirefly(glowTexture, trailLength = 12) {
   light.castShadow = false;
   group.add(light);
 
-  const trailPositions = new Float32Array(trailLength * 3);
+  const trailPositions = new Float32Array(trailLength * 3); //light trail
 
   const trailGeometry = new THREE.BufferGeometry();
   trailGeometry.setAttribute(
@@ -133,6 +139,7 @@ function createSingleFirefly(glowTexture, trailLength = 12) {
   return group;
 }
 
+//to check visibility
 function isObjectActuallyVisible(object) {
   let current = object;
 
@@ -147,6 +154,8 @@ function isObjectActuallyVisible(object) {
   return true;
 }
 
+
+//Obstacle avoidance
 function getObstacleAvoidanceRadius(mesh) {
   if (!mesh.geometry) return 0.25;
 
@@ -164,12 +173,6 @@ function getObstacleAvoidanceRadius(mesh) {
     obstacleWorldScale.z
   );
 
-  /**
-   * Radius della mesh + margine di sicurezza.
-   *
-   * Aumenta 0.18 se le lucciole entrano ancora nelle foglie.
-   * Diminuiscilo se le lucciole evitano troppo la pianta.
-   */
   return sphere.radius * maxScale + 0.18;
 }
 
@@ -200,10 +203,6 @@ function avoidObstacles(position, obstacles = []) {
 
       const penetration = avoidRadius - distance;
 
-      /**
-       * Repulsione morbida.
-       * Aumenta 0.78 per una collisione più aggressiva.
-       */
       position.addScaledVector(pushDirection, penetration * 0.78);
     }
   }
@@ -273,15 +272,8 @@ export function animateFireflies(
     const y = Math.max(0.18, data.baseHeight + wobbleY);
     const z = orbitZ + wobbleZ;
 
-    /**
-     * Posizione desiderata della lucciola.
-     */
     fireflyWorldPosition.set(x, y, z);
 
-    /**
-     * Evita foglie e petali solo di notte,
-     * cioè quando le lucciole sono visibili.
-     */
     if (isNight) {
       avoidObstacles(fireflyWorldPosition, obstacles);
     }
@@ -312,11 +304,7 @@ export function animateFireflies(
       arr[i * 3 + 1] = arr[(i - 1) * 3 + 1];
       arr[i * 3 + 2] = arr[(i - 1) * 3 + 2];
     }
-
-    /**
-     * La scia usa la posizione finale,
-     * dopo la repulsione dagli ostacoli.
-     */
+    
     arr[0] = firefly.position.x;
     arr[1] = firefly.position.y;
     arr[2] = firefly.position.z;

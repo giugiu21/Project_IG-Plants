@@ -1,13 +1,25 @@
 import * as THREE from "three";
 import { darkenColor } from "../utils/darkenColor.js";
+import { smoothstep } from "../utils/smoothStep.js";
 
-const MAX_SHADER_FIREFLIES = 8;
+/*Creating and animating the orchid flower
+    Flower structure:
+      - 2 right/left petals
+      - 3 dorsal/left/right sepals
+      - 1 labellum
 
-function smoothstep(edge0, edge1, x) {
-  const t = THREE.MathUtils.clamp((x - edge0) / (edge1 - edge0), 0, 1);
-  return t * t * (3 - 2 * t);
-}
+    3 main functions:
+      - creating the custom geometry for the flower
+      - creating a custom shader material written with a vertex shader and fragment shader
+      - updates the flower according to time
 
+    This file also deals with flower blooming animation from bud to flower
+*/
+
+const MAX_SHADER_FIREFLIES = 8; //number of fireflies that have an effect on the petals with their light
+
+
+//Petals: builds the petal manually using vertices and triangles
 function createPetalGeometry({
   length = 0.42,
   maxWidth = 0.16,
@@ -16,7 +28,6 @@ function createPetalGeometry({
   type = "petal"
 } = {}) {
   const vertices = [];
-  const uvs = [];
   const indices = [];
   const heightFactors = [];
   const sideFactors = [];
@@ -26,18 +37,13 @@ function createPetalGeometry({
 
     let widthProfile;
 
+    //different curvature for different types of petals
     if (type === "sepal") {
-      widthProfile =
-        Math.sin(v * Math.PI) *
-        (0.62 + 0.18 * Math.sin(v * Math.PI));
+      widthProfile = Math.sin(v * Math.PI) * (0.62 + 0.18 * Math.sin(v * Math.PI));
     } else if (type === "labellum") {
-      widthProfile =
-        Math.sin(v * Math.PI) * 0.72 +
-        Math.sin(v * Math.PI * 0.72) * 0.42;
+      widthProfile = Math.sin(v * Math.PI) * 0.72 + Math.sin(v * Math.PI * 0.72) * 0.42;
     } else {
-      widthProfile =
-        Math.sin(v * Math.PI) *
-        (0.78 + 0.32 * Math.sin(v * Math.PI));
+      widthProfile = Math.sin(v * Math.PI) * (0.78 + 0.32 * Math.sin(v * Math.PI));
     }
 
     const halfWidth = maxWidth * Math.max(0.0, widthProfile);
@@ -67,7 +73,6 @@ function createPetalGeometry({
       }
 
       vertices.push(x, y, z);
-      uvs.push(u, v);
       heightFactors.push(v);
       sideFactors.push(side);
     }
@@ -89,21 +94,21 @@ function createPetalGeometry({
 
   const geometry = new THREE.BufferGeometry();
 
+  //Creating the custom attributes for the shader: each flower has:
+
+  //position in space (x,y,z)
   geometry.setAttribute(
     "position",
     new THREE.Float32BufferAttribute(vertices, 3)
   );
 
-  geometry.setAttribute(
-    "uv",
-    new THREE.Float32BufferAttribute(uvs, 2)
-  );
-
+  //height in space
   geometry.setAttribute(
     "aHeightFactor",
     new THREE.Float32BufferAttribute(heightFactors, 1)
   );
 
+  //right side for blooming effect
   geometry.setAttribute(
     "aSideFactor",
     new THREE.Float32BufferAttribute(sideFactors, 1)
@@ -143,13 +148,26 @@ function createPetal({
 
   const baseNightColor = darkenColor(baseColor);
 
+  /*each petal has a custom shader
+          handles:
+          -wind deformation;
+          -cursor bending;
+          -color gradients;
+          -veins;
+          -labellum details;
+          -firefly glow;
+          -lightning flash;
+          -night color.
+  */
   const material = new THREE.ShaderMaterial({
-    side: THREE.DoubleSide,
+    side: THREE.DoubleSide, //petals are visible from both sides
     transparent: false,
 
+    //uniforms sent to the shader
     uniforms: {
       uTime: { value: 0 },
 
+      //color uniforms
       uBaseColor: { value: baseColor },
       uNightColor: { value: baseNightColor },
       uNightAmount: { value: 0 },
@@ -157,10 +175,12 @@ function createPetal({
       uSpotColor: { value: new THREE.Color(spotColor) },
       uIsLabellum: { value: type === "labellum" ? 1 : 0 },
 
+      //wind uniforms to handle movement based on wind
       uWindStrength: { value: windStrength },
       uWindSpeed: { value: windSpeed },
       uWindPhase: { value: Math.random() * Math.PI * 2 },
 
+      //cursor uniforms to handle deformation
       uCursorLocalPosition: {
         value: new THREE.Vector3(999, 999, 999)
       },
@@ -168,6 +188,7 @@ function createPetal({
       uInteractionRadius: { value: interactionRadius },
       uInteractionStrength: { value: interactionStrength },
 
+      //fireflies uniforms to handle the glow effect
       uFireflyPositions: {
         value: Array.from(
           { length: MAX_SHADER_FIREFLIES },
@@ -181,9 +202,7 @@ function createPetal({
       uFireflyRadius: { value: 1.1 },
       uFireflyColor: { value: new THREE.Color(0xffd36a) },
 
-      /**
-       * Fulmini.
-       */
+      //Lightning uniforms to handle changes in light
       uLightningIntensity: {
         value: 0
       },
@@ -192,6 +211,10 @@ function createPetal({
       }
     },
 
+    /* Vertex shader: modifies the position of the object 
+    Handles interaction (wind/cursor interaction)
+        it uses masks to decide which part of the petal moves more ---> tip moves more than the base
+    */
     vertexShader: `
       uniform float uTime;
       uniform float uWindStrength;
@@ -276,6 +299,20 @@ function createPetal({
       }
     `,
 
+    /* Fragment Shader: handles color changes in the pixels
+    Here (changes from day to night, light changes)
+        Base color:
+          -day/night
+          -lenght gradient: base darker, tip lighter
+          -center highlight
+          -veins on both sides of the petal (fading near tip and base)
+          - different color for labellum and throat
+          - edges darkening
+
+        Lightning effects:
+          - firefly glow for the closest 8
+          - lightning flash effect
+    */
     fragmentShader: `
       uniform vec3 uBaseColor;
       uniform vec3 uNightColor;
@@ -448,6 +485,7 @@ function createPetal({
   return petal;
 }
 
+//creating the bud for the blooming animation same color as petal
 function createBud(petalColor) {
   const bud = new THREE.Group();
 
@@ -504,6 +542,13 @@ function createBud(petalColor) {
   return bud;
 }
 
+/*updating petal each frame based on:
+    -shader time
+    -night transition
+    -lightning intensity
+    -cursor interaction
+    -firefly positions
+*/
 function updatePetal(
   petal,
   elapsedTime,
@@ -579,6 +624,15 @@ function updatePetal(
   }
 }
 
+/*Assembling the flower piece by piece:
+    dorsalSepal
+    leftSepal
+    rightSepal
+    leftPetal
+    rightPetal
+    labellum
+    bud
+    */
 export function createFlower({
   petalColor = 0xf2a0c4,
   sepalColor = 0xe98fb8,
@@ -755,6 +809,7 @@ export function createFlower({
   return flower;
 }
 
+//Updating the flower each frame: controls interaction and animation
 export function updateFlower(
   flower,
   elapsedTime,
@@ -777,18 +832,20 @@ export function updateFlower(
   }
 }
 
+//Animation for the growth and blooming process
 export function updateFlowerGrowth(flower, growth) {
   if (!flower) return;
 
   const data = flower.userData;
-  const g = THREE.MathUtils.clamp(growth, 0, 1);
+  const g = THREE.MathUtils.clamp(growth, 0, 1); //0 = not grown, 1= fully grown
 
   if (data.bud) {
     const bud = data.bud;
     const budData = bud.userData;
 
     const budGrowth = smoothstep(0.0, 0.28, g);
-    const columnMorph = smoothstep(0.68, 1.0, g);
+    //during central stage of growth the bud shrinks and morphs into the column of the flower
+    const columnMorph = smoothstep(0.68, 1.0, g); 
 
     bud.visible = true;
 
@@ -822,6 +879,7 @@ export function updateFlowerGrowth(flower, growth) {
     bud.rotation.x =
       THREE.MathUtils.lerp(0.0, Math.PI / 2, columnMorph);
 
+    //transitions the bud from initial color to final color
     if (budData?.budCoreMaterial) {
       budData.budCoreMaterial.color.copy(
         budData.startCoreColor.clone().lerp(
@@ -860,6 +918,7 @@ export function updateFlowerGrowth(flower, growth) {
     }
   }
 
+  //petal opening
   const petals = data.petals || [];
   const baseTransforms = data.basePetalTransforms || [];
 

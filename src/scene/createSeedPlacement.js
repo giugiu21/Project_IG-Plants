@@ -1,5 +1,14 @@
 import * as THREE from "three";
 
+/*This file creates the seed:
+    It handles:
+      - seed 3D geometry model
+      - preview visualization
+      - seed placement
+      - throwing seed animation
+*/
+
+//visual dashed circle surrounding the seed 
 function createDashedCircle(radius = 0.32) {
   const points = [];
   const segments = 48;
@@ -33,6 +42,7 @@ function createDashedCircle(radius = 0.32) {
   return circle;
 }
 
+//Seed 3D geometry
 function createSeedMesh() {
   const seed = new THREE.Mesh(
     new THREE.SphereGeometry(0.09, 18, 18),
@@ -50,8 +60,9 @@ function createSeedMesh() {
   return seed;
 }
 
+//Creates the placement system for the seed
 export function createSeedPlacement() {
-  const previewGroup = new THREE.Group();
+  const previewGroup = new THREE.Group(); //preview for user, to know where we are throwing the seed
 
   const previewSeed = createSeedMesh();
   previewSeed.position.y = 0;
@@ -65,6 +76,7 @@ export function createSeedPlacement() {
 
   previewGroup.visible = false;
 
+  //actual seeds that were planted
   const plantedSeeds = new THREE.Group();
 
   const fallingSeeds = [];
@@ -73,21 +85,23 @@ export function createSeedPlacement() {
     isPlacing: false,
     canPlace: false,
 
-    // posizione sospesa del seme preview
+    // suspended position for the preview -- it follows the cursor
     previewPosition: new THREE.Vector3(),
 
-    // punto reale sul terreno dove il seme cadrà
+    //real ground position after throwing
     groundPosition: new THREE.Vector3()
   };
 
+//when we click on plant
   function startPlacement() {
     state.isPlacing = true;
     state.canPlace = false;
 
     previewGroup.visible = true;
-    dashedCircle.visible = false;
+    dashedCircle.visible = false; 
   }
 
+  //if we cancel the planting
   function cancelPlacement() {
     state.isPlacing = false;
     state.canPlace = false;
@@ -96,9 +110,7 @@ export function createSeedPlacement() {
     dashedCircle.visible = false;
   }
 
-  /**
-   * Questa funzione aggiorna il preview anche quando non sei sopra il ground.
-   */
+  //Keeping the preview visible even if cursor is not on the ground (suitable planting position)
   function updatePreviewFloating(floatingPosition) {
     if (!state.isPlacing) return;
 
@@ -107,19 +119,15 @@ export function createSeedPlacement() {
     previewGroup.visible = true;
   }
 
-  /**
-   * Questa funzione viene chiamata solo quando il mouse è sopra il ground.
-   */
+  //if we are on a suitable planting position
   function updateGroundTarget(groundPosition) {
     if (!state.isPlacing) return;
 
     state.canPlace = true;
     state.groundPosition.copy(groundPosition);
 
+    //dashed cirle appears
     dashedCircle.visible = true;
-
-    // Il cerchio tratteggiato deve stare sul terreno,
-    // quindi lo posizioniamo relativo al previewGroup.
     dashedCircle.position.set(
       groundPosition.x - previewGroup.position.x,
       groundPosition.y - previewGroup.position.y + 0.025,
@@ -127,6 +135,7 @@ export function createSeedPlacement() {
     );
   }
 
+  //if cursor is not in a valid ground position
   function clearGroundTarget() {
     if (!state.isPlacing) return;
 
@@ -134,9 +143,7 @@ export function createSeedPlacement() {
     dashedCircle.visible = false;
   }
 
-  /**
-   * Il seme viene creato in aria e cade verso il punto sul ground.
-   */
+  //Planting function
   function dropSeed() {
     if (!state.isPlacing || !state.canPlace) return null;
 
@@ -144,6 +151,7 @@ export function createSeedPlacement() {
 
     seed.position.copy(state.previewPosition);
 
+    //random rotation to change the appearance of the seeds
     seed.rotation.set(
       Math.random() * 0.4,
       Math.random() * Math.PI * 2,
@@ -166,56 +174,59 @@ export function createSeedPlacement() {
     return seed;
   }
 
-function updateFallingSeeds(deltaTime) {
-  const newlySettledSeeds = [];
+  //updates in real time the array of seeds that were planted -- used to then animate the plant growth
+  function updateFallingSeeds(deltaTime) {
+    const newlySettledSeeds = [];
 
-  for (const item of fallingSeeds) {
-    if (item.settled) continue;
+    for (const item of fallingSeeds) {
+      if (item.settled) continue;
 
-    const seed = item.mesh;
+      const seed = item.mesh;
 
-    item.velocity.y += item.gravity * deltaTime;
-    seed.position.y += item.velocity.y * deltaTime;
+      //updates velocity based on gravity
+      item.velocity.y += item.gravity * deltaTime;
+      seed.position.y += item.velocity.y * deltaTime;
 
-    seed.position.x = THREE.MathUtils.lerp(
-      seed.position.x,
-      item.target.x,
-      0.12
-    );
+      //moving towards the target -- this + gravity creates a parabolic throw
+      seed.position.x = THREE.MathUtils.lerp(
+        seed.position.x,
+        item.target.x,
+        0.12
+      );
 
-    seed.position.z = THREE.MathUtils.lerp(
-      seed.position.z,
-      item.target.z,
-      0.12
-    );
+      seed.position.z = THREE.MathUtils.lerp(
+        seed.position.z,
+        item.target.z,
+        0.12
+      );
 
-    seed.rotation.x += deltaTime * 2.5;
-    seed.rotation.z += deltaTime * 1.6;
+      //while falling the seed rotates
+      seed.rotation.x += deltaTime * 2.5;
+      seed.rotation.z += deltaTime * 1.6;
 
-    const groundY = item.target.y + 0.08;
+      //ground collision
+      const groundY = item.target.y + 0.08;
 
-    if (seed.position.y <= groundY) {
-      seed.position.y = groundY;
+      if (seed.position.y <= groundY) {
+        seed.position.y = groundY;
 
-      if (Math.abs(item.velocity.y) > 1.2) {
-        item.velocity.y *= -item.bounce;
-      } else {
-        item.velocity.set(0, 0, 0);
-        item.settled = true;
+        //if the velocity is strong enough the seed bounces
+        if (Math.abs(item.velocity.y) > 1.2) {
+          item.velocity.y *= -item.bounce;
+        } else { 
+          //the seed is planted
+          item.velocity.set(0, 0, 0);
+          item.settled = true;
 
-        seed.rotation.x = Math.random() * 0.25;
-        seed.rotation.z = Math.random() * 0.25;
-
-        newlySettledSeeds.push({
-          seed,
-          position: item.target.clone()
-        });
+          newlySettledSeeds.push({
+            seed,
+            position: item.target.clone()
+          });
+        }
       }
     }
+    return newlySettledSeeds;
   }
-
-  return newlySettledSeeds;
-}
 
   return {
     group: previewGroup,

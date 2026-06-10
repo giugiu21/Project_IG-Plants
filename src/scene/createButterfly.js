@@ -1,10 +1,21 @@
 import * as THREE from "three";
+/*Creating and animating the 3D butterfly object.
+    Main functions:
+    - building the butterfly model (body, head, wings, antennas, legs)
+    - applying texture
+    - modeling the movement in the environment
+    - collision avoidance
+    - removing the object in storm mode
+*/
 
-const TMP_DIRECTION = new THREE.Vector3();
-const TMP_AVOIDANCE = new THREE.Vector3();
-const TMP_OBSTACLE = new THREE.Vector3();
-const TMP_AWAY = new THREE.Vector3();
+//3D vectors (x, y, z)
+const TMP_DIRECTION = new THREE.Vector3(); //direction of butterfly's movement
+const TMP_OBSTACLE = new THREE.Vector3(); //position of the obstacles in the environment
+const TMP_AVOIDANCE = new THREE.Vector3(); //sum of the forces to move the butterfly away from the obstacles
+const TMP_AWAY = new THREE.Vector3(); //new direction away from obstacles
 
+
+//Day and Night colors
 const DAY_BODY_COLOR = new THREE.Color(0x352517);
 const NIGHT_BODY_COLOR = new THREE.Color(0x1b2132);
 
@@ -14,9 +25,10 @@ const NIGHT_EYE_COLOR = new THREE.Color(0x000000);
 const DAY_WING_TINT = new THREE.Color(0xffffff);
 const NIGHT_WING_TINT = new THREE.Color(0xcc9b5298);
 
-const DAY_VEIN_COLOR = new THREE.Color(0x0d0603);
-const NIGHT_VEIN_COLOR = new THREE.Color(0x05070d);
 
+//Generating a random point in the environment to choose:
+// - the initial position of the butterfly
+// - new direction
 function randomPointInAir(radius = 3.8) {
   const r = Math.sqrt(Math.random()) * radius;
   const a = Math.random() * Math.PI * 2;
@@ -28,6 +40,7 @@ function randomPointInAir(radius = 3.8) {
   );
 }
 
+//Applies UV coordinates to the wings --> to position the texture
 function applyWingUVs(geometry) {
   geometry.computeBoundingBox();
 
@@ -55,11 +68,14 @@ function applyWingUVs(geometry) {
   );
 }
 
+
+//Creating the wing's shape (side = 1 right side, side = -1 left side)
 function createWingGeometry(side = 1) {
-  const shape = new THREE.Shape();
+  const shape = new THREE.Shape(); //new 2D shape
 
-  shape.moveTo(0, -0.22);
+  shape.moveTo(0, -0.22); //initial point
 
+  //Bezier Curves allow the modeling of curved shapes --> they recieve 3 points: control1, control2, final point
   shape.bezierCurveTo(
     side * 0.12,
     -0.46,
@@ -105,15 +121,16 @@ function createWingGeometry(side = 1) {
     0.08
   );
 
-  shape.lineTo(0, -0.22);
+  shape.lineTo(0, -0.22); //closing the shape
 
-  const geometry = new THREE.ShapeGeometry(shape, 80);
-
+  //converting the drawing into a geometry that we can use with three.js
+  const geometry = new THREE.ShapeGeometry(shape, 80); 
   const position = geometry.attributes.position;
 
+  //modifying the vertices
   for (let i = 0; i < position.count; i++) {
     const x = position.getX(i);
-    const z = position.getY(i);
+    const z = position.getY(i); //y-coordinate becomes z coordinate
 
     const distanceFromBody = Math.abs(x);
 
@@ -142,68 +159,10 @@ function createWingGeometry(side = 1) {
   return geometry;
 }
 
-function createWingVeins(side = 1, material) {
-  const group = new THREE.Group();
 
-  const veinMaterial = material.clone();
-  veinMaterial.transparent = true;
-  veinMaterial.opacity = 0.38;
-  veinMaterial.depthWrite = false;
-
-  function addVein(points) {
-    const geometry = new THREE.BufferGeometry().setFromPoints(
-      points.map(([x, y, z]) => new THREE.Vector3(x, y, z))
-    );
-
-    const line = new THREE.Line(geometry, veinMaterial);
-    group.add(line);
-  }
-
-  const y = 0.034;
-
-  addVein([
-    [0, y, -0.08],
-    [side * 0.18, y, -0.18],
-    [side * 0.40, y, -0.28],
-    [side * 0.70, y, -0.40]
-  ]);
-
-  addVein([
-    [side * 0.10, y, -0.12],
-    [side * 0.30, y, -0.42],
-    [side * 0.55, y, -0.55]
-  ]);
-
-  addVein([
-    [side * 0.15, y, -0.05],
-    [side * 0.45, y, -0.12],
-    [side * 0.82, y, -0.20]
-  ]);
-
-  addVein([
-    [side * 0.18, y, 0.02],
-    [side * 0.42, y, 0.02],
-    [side * 0.58, y, 0.02]
-  ]);
-
-  addVein([
-    [side * 0.08, y, 0.08],
-    [side * 0.26, y, 0.24],
-    [side * 0.46, y, 0.38]
-  ]);
-
-  addVein([
-    [side * 0.06, y, 0.10],
-    [side * 0.18, y, 0.30],
-    [side * 0.28, y, 0.43]
-  ]);
-
-  group.userData.material = veinMaterial;
-
-  return group;
-}
 
 function createAntenna(side = 1, material) {
+  //curved lines
   const curve = new THREE.CatmullRomCurve3([
     new THREE.Vector3(side * 0.022, 0.03, -0.13),
     new THREE.Vector3(side * 0.055, 0.08, -0.18),
@@ -221,6 +180,7 @@ function createAntenna(side = 1, material) {
 
   const antenna = new THREE.Mesh(geometry, material);
 
+  //tip of the antenna
   const tip = new THREE.Mesh(
     new THREE.SphereGeometry(0.009, 8, 6),
     material
@@ -232,7 +192,9 @@ function createAntenna(side = 1, material) {
   return antenna;
 }
 
+
 function createLeg(side = 1, z = 0, material) {
+  //curved lines
   const curve = new THREE.CatmullRomCurve3([
     new THREE.Vector3(side * 0.018, -0.012, z),
     new THREE.Vector3(side * 0.055, -0.035, z + 0.015),
@@ -250,6 +212,7 @@ function createLeg(side = 1, z = 0, material) {
   return new THREE.Mesh(geometry, material);
 }
 
+
 function createButterflyMesh() {
   const butterfly = new THREE.Group();
 
@@ -263,7 +226,7 @@ function createButterflyMesh() {
 
   leftWingTexture.wrapS = THREE.RepeatWrapping;
   leftWingTexture.repeat.x = -1;
-  leftWingTexture.offset.x = 1;
+  //leftWingTexture.offset.x = 1;
 
   const bodyMaterial = new THREE.MeshStandardMaterial({
     color: DAY_BODY_COLOR,
@@ -293,39 +256,25 @@ function createButterflyMesh() {
     side: THREE.DoubleSide
   });
 
-  const veinMaterial = new THREE.LineBasicMaterial({
-    color: DAY_VEIN_COLOR,
-    transparent: true,
-    opacity: 0.50
-  });
 
   butterfly.userData.materials = {
     bodyMaterial,
     eyeMaterial,
     leftWingMaterial,
     rightWingMaterial,
-    veinMaterial,
     nightMix: 0
   };
 
-  const abdomen = new THREE.Mesh(
+  //Butterfly composed of: body, head, left/right wings with their pivot groups, 2 antennas, 6 legs
+  const body = new THREE.Mesh(
     new THREE.CapsuleGeometry(0.028, 0.19, 8, 14),
     bodyMaterial
   );
 
-  abdomen.rotation.x = Math.PI / 2;
-  abdomen.position.set(0, -0.002, 0.07);
-  abdomen.scale.set(0.82, 0.82, 1.22);
-  butterfly.add(abdomen);
-
-  const thorax = new THREE.Mesh(
-    new THREE.SphereGeometry(0.045, 14, 10),
-    bodyMaterial
-  );
-
-  thorax.position.set(0, 0.006, -0.055);
-  thorax.scale.set(0.82, 1.05, 1.2);
-  butterfly.add(thorax);
+  body.rotation.x = Math.PI / 2;
+  body.position.set(0, -0.002, 0.07);
+  body.scale.set(0.82, 1.5, 1.22);
+  butterfly.add(body);
 
   const head = new THREE.Mesh(
     new THREE.SphereGeometry(0.038, 14, 10),
@@ -335,22 +284,6 @@ function createButterflyMesh() {
   head.position.set(0, 0.012, -0.125);
   head.scale.set(1, 0.92, 1.08);
   butterfly.add(head);
-
-  const leftEye = new THREE.Mesh(
-    new THREE.SphereGeometry(0.013, 8, 6),
-    eyeMaterial
-  );
-
-  leftEye.position.set(-0.028, 0.02, -0.142);
-  butterfly.add(leftEye);
-
-  const rightEye = new THREE.Mesh(
-    new THREE.SphereGeometry(0.013, 8, 6),
-    eyeMaterial
-  );
-
-  rightEye.position.set(0.028, 0.02, -0.142);
-  butterfly.add(rightEye);
 
   const leftWingPivot = new THREE.Group();
   const rightWingPivot = new THREE.Group();
@@ -376,15 +309,6 @@ function createButterflyMesh() {
 
   leftWingGroup.add(leftWing);
   rightWingGroup.add(rightWing);
-
-  const leftVeins = createWingVeins(-1, veinMaterial);
-  const rightVeins = createWingVeins(1, veinMaterial);
-
-  leftWingGroup.add(leftVeins);
-  rightWingGroup.add(rightVeins);
-
-  butterfly.userData.materials.leftVeinMaterial = leftVeins.userData.material;
-  butterfly.userData.materials.rightVeinMaterial = rightVeins.userData.material;
 
   leftWingGroup.rotation.z = THREE.MathUtils.degToRad(-4);
   rightWingGroup.rotation.z = THREE.MathUtils.degToRad(4);
@@ -412,6 +336,7 @@ function createButterflyMesh() {
 
   butterfly.scale.setScalar(0.50);
 
+  //adding the shadow
   butterfly.traverse((child) => {
     if (child.isMesh) {
       child.castShadow = true;
@@ -422,78 +347,31 @@ function createButterflyMesh() {
   return butterfly;
 }
 
+//Plant avoidance for the butterfly
 function applyPlantAvoidance({
   position,
   direction,
   plants
 }) {
-  TMP_AVOIDANCE.set(0, 0, 0);
+  TMP_AVOIDANCE.set(0, 0, 0); //avoidance vector reset
 
+  //for each plant in the scene
   for (const plant of plants) {
-    if (plant.userData?.flower) {
-      plant.userData.flower.getWorldPosition(TMP_OBSTACLE);
-
-      const flowerAvoidRadius = 0.3;
-      const distance = position.distanceTo(TMP_OBSTACLE);
-
-      if (distance < flowerAvoidRadius) {
-        TMP_AWAY.subVectors(position, TMP_OBSTACLE);
-
-        if (TMP_AWAY.lengthSq() > 0.0001) {
-          TMP_AWAY.normalize();
-
-          const strength = 1.0 - distance / flowerAvoidRadius;
-
-          TMP_AVOIDANCE.addScaledVector(
-            TMP_AWAY,
-            strength * strength * 1.35
-          );
-        }
-      }
-    }
-
-    const leaves = plant.userData?.leaves || [];
-
-    for (const leaf of leaves) {
-      const leafMesh = leaf.userData?.leafMesh;
-
-      if (!leafMesh) continue;
-
-      leafMesh.getWorldPosition(TMP_OBSTACLE);
-
-      const leafAvoidRadius = 0.42;
-      const distance = position.distanceTo(TMP_OBSTACLE);
-
-      if (distance < leafAvoidRadius) {
-        TMP_AWAY.subVectors(position, TMP_OBSTACLE);
-
-        if (TMP_AWAY.lengthSq() > 0.0001) {
-          TMP_AWAY.normalize();
-
-          const strength = 1.0 - distance / leafAvoidRadius;
-
-          TMP_AVOIDANCE.addScaledVector(
-            TMP_AWAY,
-            strength * strength * 1.1
-          );
-        }
-      }
-    }
-
     plant.getWorldPosition(TMP_OBSTACLE);
     TMP_OBSTACLE.y += 0.8;
 
-    const plantAvoidRadius = 0.55;
+    const plantAvoidRadius = 0.45;
     const plantDistance = position.distanceTo(TMP_OBSTACLE);
 
     if (plantDistance < plantAvoidRadius) {
-      TMP_AWAY.subVectors(position, TMP_OBSTACLE);
+      TMP_AWAY.subVectors(position, TMP_OBSTACLE);//computing the new direction away from the obstacle
 
-      if (TMP_AWAY.lengthSq() > 0.0001) {
+      if (TMP_AWAY.lengthSq() > 0.0001) { //check that butterfly and flower are in different positions
         TMP_AWAY.normalize();
 
         const strength = 1.0 - plantDistance / plantAvoidRadius;
 
+        //computing how strong the avoidance has to be
         TMP_AVOIDANCE.addScaledVector(
           TMP_AWAY,
           strength * strength * 0.9
@@ -516,46 +394,20 @@ function chooseSafeRandomTarget({
 
     let safe = true;
 
+    //choose a point that is far away from the plants
     for (const plant of plants) {
       plant.getWorldPosition(TMP_OBSTACLE);
       TMP_OBSTACLE.y += 0.85;
-
       if (target.distanceTo(TMP_OBSTACLE) < 0.75) {
         safe = false;
         break;
       }
-
-      if (plant.userData?.flower) {
-        plant.userData.flower.getWorldPosition(TMP_OBSTACLE);
-
-        if (target.distanceTo(TMP_OBSTACLE) < 0.65) {
-          safe = false;
-          break;
-        }
+      else{
+        return target;
       }
-
-      const leaves = plant.userData?.leaves || [];
-
-      for (const leaf of leaves) {
-        const leafMesh = leaf.userData?.leafMesh;
-        if (!leafMesh) continue;
-
-        leafMesh.getWorldPosition(TMP_OBSTACLE);
-
-        if (target.distanceTo(TMP_OBSTACLE) < 0.45) {
-          safe = false;
-          break;
-        }
-      }
-
-      if (!safe) break;
-    }
-
-    if (safe) {
-      return target;
-    }
+    } 
   }
-
+  //fall back if after 18 tries doen't find anything
   return randomPointInAir(radius);
 }
 
@@ -567,22 +419,22 @@ export function createButterfly({
   const butterfly = createButterflyMesh();
   group.add(butterfly);
 
-  butterfly.position.copy(randomPointInAir(radius));
+  butterfly.position.copy(randomPointInAir(radius)); //initial position
 
   const state = {
-    radius,
+    radius, //max radius in which the butterfly flies within
 
-    target: randomPointInAir(radius),
+    target: randomPointInAir(radius), //next destination
 
     speed: 0.55,
     turnSpeed: 4.5,
 
-    flapPhase: Math.random() * Math.PI * 2,
+    flapPhase: Math.random() * Math.PI * 2, //random phase for butterfly's wing flap
     flapSpeed: 12.0,
 
-    hoverPhase: Math.random() * Math.PI * 2,
+    hoverPhase: Math.random() * Math.PI * 2, //random phase for butterfly's wing hovering
 
-    visibleStrength: 1
+    visibleStrength: 1 //used to make the butterfly disappear in storm mode
   };
 
   group.userData = {
@@ -611,6 +463,7 @@ export function animateButterfly(
 
   const materials = butterfly.userData.materials;
 
+  //night-day color transformation
   if (materials) {
     const nightMix = THREE.MathUtils.lerp(
       materials.nightMix || 0,
@@ -626,11 +479,6 @@ export function animateButterfly(
       nightMix
     );
 
-    materials.eyeMaterial.color.lerpColors(
-      DAY_EYE_COLOR,
-      NIGHT_EYE_COLOR,
-      nightMix
-    );
 
     materials.leftWingMaterial.color.lerpColors(
       DAY_WING_TINT,
@@ -644,22 +492,6 @@ export function animateButterfly(
       nightMix
     );
 
-    if (materials.leftVeinMaterial) {
-      materials.leftVeinMaterial.color.lerpColors(
-        DAY_VEIN_COLOR,
-        NIGHT_VEIN_COLOR,
-        nightMix
-      );
-    }
-
-    if (materials.rightVeinMaterial) {
-      materials.rightVeinMaterial.color.lerpColors(
-        DAY_VEIN_COLOR,
-        NIGHT_VEIN_COLOR,
-        nightMix
-      );
-    }
-
     materials.leftWingMaterial.emissive.set(0x0a1028);
     materials.rightWingMaterial.emissive.set(0x0a1028);
 
@@ -667,8 +499,9 @@ export function animateButterfly(
     materials.rightWingMaterial.emissiveIntensity = 0.06 * nightMix;
   }
 
-  const targetVisible = isRaining ? 0 : 1;
+  const targetVisible = isRaining ? 0 : 1; //changing visibility when raining
 
+  //gradually disappearing/appearing
   state.visibleStrength = THREE.MathUtils.lerp(
     state.visibleStrength,
     targetVisible,
@@ -681,15 +514,14 @@ export function animateButterfly(
     return;
   }
 
-  butterfly.scale.setScalar(0.65 * state.visibleStrength);
+  butterfly.scale.setScalar(0.65 * state.visibleStrength); //butterfly reduces in size when disappearing/reappearing
 
-  const flap =
-    Math.sin(elapsedTime * state.flapSpeed + state.flapPhase) *
-    0.85;
+  const flap = Math.sin(elapsedTime * state.flapSpeed + state.flapPhase) * 0.75; //wing flap with amplitude of 0.75
 
   const leftWingPivot = butterfly.userData.leftWingPivot;
   const rightWingPivot = butterfly.userData.rightWingPivot;
 
+  //rotation of the wings
   if (leftWingPivot && rightWingPivot) {
     leftWingPivot.rotation.z =
       THREE.MathUtils.degToRad(-6) - flap;
@@ -698,9 +530,9 @@ export function animateButterfly(
       THREE.MathUtils.degToRad(6) + flap;
   }
 
-  const distanceToTarget =
-    butterfly.position.distanceTo(state.target);
+  const distanceToTarget = butterfly.position.distanceTo(state.target); //movement direction to target
 
+  //when close to target we choose a new one
   if (distanceToTarget < 0.22) {
     state.target.copy(
       chooseSafeRandomTarget({
@@ -710,10 +542,11 @@ export function animateButterfly(
     );
   }
 
-  TMP_DIRECTION.subVectors(state.target, butterfly.position);
+  TMP_DIRECTION.subVectors(state.target, butterfly.position); //direction vector
 
   const distance = TMP_DIRECTION.length();
 
+  //if we have a long enough distance we travel there
   if (distance > 0.001) {
     TMP_DIRECTION.normalize();
 
@@ -724,29 +557,33 @@ export function animateButterfly(
     });
 
     const naturalSpeed =
-      state.speed *
-      (0.82 + 0.18 * Math.sin(elapsedTime * 2.3 + state.hoverPhase));
+      state.speed * (0.82 + 0.18 * Math.sin(elapsedTime * 2.3 + state.hoverPhase)); //variable velocity, oscillating in time
 
+    //moving the butterfly
     butterfly.position.addScaledVector(
       TMP_DIRECTION,
       naturalSpeed * deltaTime
     );
 
+    //oscillating in y-axis
     butterfly.position.y +=
       Math.sin(elapsedTime * 4.0 + state.hoverPhase) *
       0.006;
 
+    //limiting the height of flight
     butterfly.position.y = THREE.MathUtils.clamp(
       butterfly.position.y,
-      0.9,
-      3.0
+      0.7,
+      3.5
     );
 
+    //staying in the enviroment
     const distanceFromCenter = Math.sqrt(
       butterfly.position.x * butterfly.position.x +
       butterfly.position.z * butterfly.position.z
     );
 
+    //if the butterfly goes away from the scene we change direction
     if (distanceFromCenter > state.radius * 1.05) {
       state.target.copy(
         chooseSafeRandomTarget({
@@ -756,6 +593,7 @@ export function animateButterfly(
       );
     }
 
+    //horiziontal rotation to change path
     const targetYaw = Math.atan2(
       -TMP_DIRECTION.x,
       -TMP_DIRECTION.z

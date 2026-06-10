@@ -5,14 +5,20 @@ import {
   updateFlower,
   updateFlowerGrowth
 } from "./createFlower.js";
+import { smoothstep } from "../utils/smoothStep.js";
 
-//function for smooth transition for plant growth
-function smoothstep(edge0, edge1, x) {
-  const t = THREE.MathUtils.clamp((x - edge0) / (edge1 - edge0), 0, 1);
-  return t * t * (3 - 2 * t);
-}
+/*This file allows the creation and animation of the whole plant group
+    Plant Group is composed of:
+    - 1 stem
+    - 4 leaves
+    - 1 flower group
+    It handles: 
+    - Progressive growth of the plant
+    - global wind movement
+    - updates of the cursor interaction with leaves/flower, position of fireflies, night mode and storm state/lightning
+*/
 
-
+//Creating the stem of the plant
 function createStem(height = 2.0) {
   const curve = new THREE.CatmullRomCurve3([
     new THREE.Vector3(0, 0, 0),
@@ -43,14 +49,16 @@ function createStem(height = 2.0) {
   return stem;
 }
 
+//Creating the whole plant
 export function createPlant(position, options = {}) {
   const {
     flowerColor = 0xf2a0c4
   } = options;
   const group = new THREE.Group();
 
+  //position = position of the seed
   group.position.copy(position);
-  group.position.y += 0.08;
+  group.position.y += 0.08; // a bit higher up
 
   //Scaling the plant by 135%
   group.scale.setScalar(1.35);
@@ -61,10 +69,12 @@ export function createPlant(position, options = {}) {
   const windMovement = new THREE.Group();
   group.add(windMovement);
 
+  //creating the stem
   const stem = createStem(1.5);
   stem.scale.set(1, 0.01, 1);
   windMovement.add(stem);
 
+  //Creating the leaves
   const leafLeft = createLeaf({
     color: 0x3f8f3f,
     length: 1.25,
@@ -121,10 +131,10 @@ export function createPlant(position, options = {}) {
   leafBack.rotation.set(-0.5, -3, 3);
   windMovement.add(leafBack);
 
+  //Creating the flower
   const flower = createFlower({
-    //petalColor: 0xf2a0c4,
-    petalColor: flowerColor,
-    sepalColor: flowerColor,
+    petalColor: flowerColor, //chosen by user
+    sepalColor: flowerColor, //chosen by user
     throatColor: 0xffd35a
   });
 
@@ -132,7 +142,7 @@ export function createPlant(position, options = {}) {
   flower.rotation.set(-0.18, 0.15, 0.05);
   windMovement.add(flower);
 
-
+  //Creating the whole group
   group.userData = {
     growth: 0, //growth starts at 0
 
@@ -141,6 +151,7 @@ export function createPlant(position, options = {}) {
     baseWindRotation: windMovement.rotation.clone(),
     windPhase: Math.random() * Math.PI * 2, //Casual phase for the wind -- to not have same oscillations
 
+    //parts of the plant
     stem,
     leaves: [leafLeft, leafRight, leafFront, leafBack],
     flower,
@@ -168,10 +179,11 @@ export function createPlant(position, options = {}) {
   return group;
 }
 
+//Function updating the growth of the plant
 export function updatePlantGrowth(plant, growth) {
   const data = plant.userData;
 
-  data.growth = THREE.MathUtils.clamp(growth, 0, 1);
+  data.growth = THREE.MathUtils.clamp(growth, 0, 1); // 0 = not grown, 1 = fully grown
 
   const g = data.growth;
 
@@ -222,17 +234,17 @@ export function updatePlantGrowth(plant, growth) {
   data.flower.visible = flowerGrowth > 0.01;
 
   if (flowerGrowth > 0.01) {
-    data.flower.scale.setScalar(
-      THREE.MathUtils.lerp(0.4, 1.0, flowerGrowth)
-    );
-
+    data.flower.scale.setScalar(THREE.MathUtils.lerp(0.4, 1.0, flowerGrowth));// start growing the flower
+    //calling the blooming animation
     updateFlowerGrowth(data.flower, flowerGrowth);
   } else { 
-    data.flower.scale.setScalar(0.01);
+    data.flower.scale.setScalar(0.01); //start the growth
+    //calling the blooming animation
     updateFlowerGrowth(data.flower, 0);
   }
 }
 
+//Main plant animation
 export function animatePlant(
   plant,
   deltaTime,
@@ -245,8 +257,9 @@ export function animatePlant(
   stormWind = 0,
   isNight = false
 ) {
-  const currentGrowth = plant.userData.growth;
+  const currentGrowth = plant.userData.growth; //update the current growth value
 
+  //if we are not growing it's time to start
   if (currentGrowth < 1) {
     const nextGrowth =
       currentGrowth + deltaTime * 0.08 * growthSpeed;
@@ -257,7 +270,7 @@ export function animatePlant(
   const data = plant.userData;
 
   //----- Global wind -----
- //stormWind:  0 = vento normale  1 = tempesta
+ //stormWind:  0 = normal wind  1 = storm wind
 
   const windAmount = stormWind > 0 ? 0.07 : 0.008; // if we have the storm the wind is strong
   const windSpeed = stormWind > 0 ? 2.4 : 0.8; //if we have the storm the wind is faster
@@ -288,6 +301,8 @@ export function animatePlant(
     data.baseWindRotation.x + swayX;
 
 
+  //we update each element of the plant constantly to animate
+  //leaves
   for (const leaf of data.leaves) {
     updateLeaf(
       leaf,
@@ -299,7 +314,7 @@ export function animatePlant(
       isNight
     );
   }
-
+  //Flower
   updateFlower(
     data.flower,
     elapsedTime,
@@ -309,5 +324,5 @@ export function animatePlant(
     isNight
   );
 
-  return data.growth < 1;
+  return data.growth < 1; //Returns true while the plant is still growing
 }

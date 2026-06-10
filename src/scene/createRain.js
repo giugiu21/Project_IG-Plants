@@ -1,16 +1,10 @@
 import * as THREE from "three";
+import { randomPointInCircle } from "../utils/randomPointInCircle.js";
 
-function randomInDisk(radius) {
-  const r = Math.sqrt(Math.random()) * radius;
-  const a = Math.random() * Math.PI * 2;
-
-  return {
-    x: Math.cos(a) * r,
-    z: Math.sin(a) * r
-  };
-}
+/*This file handles the main rain animation, this is the most basic one to create an enviroment scenery*/
 
 function createRainMaterial() {
+  //the rain is just composed of basic lines
   return new THREE.LineBasicMaterial({
     color: 0xbfdcff,
     transparent: true,
@@ -20,6 +14,7 @@ function createRainMaterial() {
   });
 }
 
+//Splash animations for the ground
 function createSplashMaterial() {
   return new THREE.MeshBasicMaterial({
     color: 0xcfeeff,
@@ -30,6 +25,7 @@ function createSplashMaterial() {
     side: THREE.DoubleSide
   });
 }
+
 
 export function createRain({
   count = 1200,
@@ -51,8 +47,9 @@ export function createRain({
 
   const drops = [];
 
+  //Spawning the rain in random positions in the environment
   for (let i = 0; i < count; i++) {
-    const p = randomInDisk(radius);
+    const p = randomPointInCircle(radius);
 
     const position = new THREE.Vector3(
       p.x,
@@ -97,6 +94,7 @@ export function createRain({
   rainLines.visible = false;
   group.add(rainLines);
 
+  //Splash effect on the ground settings
   const splashPool = [];
   const splashMaterial = createSplashMaterial();
 
@@ -127,9 +125,10 @@ export function createRain({
     }
   }
 
+  //Reset the drops when they fall into the ground or fall out of environment
   function resetDrop(index) {
     const drop = drops[index];
-    const p = randomInDisk(radius);
+    const p = randomPointInCircle(radius);
 
     drop.position.set(
       p.x,
@@ -140,6 +139,7 @@ export function createRain({
     drop.previous.copy(drop.position);
   }
 
+  //adding the splashes in the ground
   function addSplash(position, strength = 1) {
     const distFromCenter = Math.sqrt(
       position.x * position.x +
@@ -166,6 +166,7 @@ export function createRain({
     splash.userData.life = splash.userData.maxLife;
   }
 
+  //Update the whole system
   function update(deltaTime, elapsedTime, stormState = {}) {
     state.intensity = THREE.MathUtils.lerp(
       state.intensity,
@@ -173,13 +174,13 @@ export function createRain({
       deltaTime * 2.8
     );
 
+    //if it is not raining return
     if (state.intensity < 0.01) {
       rainLines.visible = false;
 
       if (!state.active) {
         group.visible = false;
       }
-
       return;
     }
 
@@ -188,14 +189,14 @@ export function createRain({
 
     material.opacity = 0.72 * state.intensity;
 
-    const windDirection =
-      stormState.windDirection || new THREE.Vector2(0.45, 0.12);
-
+    //wind settings
+    const windDirection = stormState.windDirection || new THREE.Vector2(0.45, 0.12);
     const windStrength = stormState.windStrength || 0;
 
     const windX = windDirection.x * windStrength;
     const windZ = windDirection.y * windStrength;
 
+    //for each drop
     for (let i = 0; i < drops.length; i++) {
       const drop = drops[i];
 
@@ -207,16 +208,9 @@ export function createRain({
       drop.position.z +=
         (windZ + drop.drift.y) * deltaTime * 1.8;
 
-      /**
-       * Spostamento extra verso sinistra.
-       * Se non lo vuoi, metti 0.0.
-       */
       drop.position.x -= deltaTime * 1.2 * state.intensity;
 
-      drop.position.y -=
-        drop.speed *
-        deltaTime *
-        THREE.MathUtils.lerp(0.4, 1.0, state.intensity);
+      drop.position.y -= drop.speed * deltaTime * THREE.MathUtils.lerp(0.4, 1.0, state.intensity);
 
       const ix = i * 6;
 
@@ -233,14 +227,14 @@ export function createRain({
       positions[ix + 5] =
         drop.position.z - windZ * drop.length * 0.45;
 
+      //if drops fall onto the ground create puddles and reset drops
       if (drop.position.y <= groundY) {
         addSplash(drop.position, state.intensity);
         resetDrop(i);
       }
 
-      const distanceFromCenterSq =
-        drop.position.x * drop.position.x +
-        drop.position.z * drop.position.z;
+      //if the drop is outside the predefined radius, reset drop
+      const distanceFromCenterSq = drop.position.x * drop.position.x + drop.position.z * drop.position.z;
 
       if (distanceFromCenterSq > radius * radius * 1.35) {
         resetDrop(i);
@@ -249,18 +243,17 @@ export function createRain({
 
     geometry.attributes.position.needsUpdate = true;
 
+    //puddle settings
     for (const splash of splashPool) {
       if (!splash.visible) continue;
 
       splash.userData.life -= deltaTime;
 
-      const t =
-        1.0 - splash.userData.life / splash.userData.maxLife;
+      const t = 1.0 - splash.userData.life / splash.userData.maxLife;
 
       splash.scale.multiplyScalar(1.0 + deltaTime * 3.8);
 
-      splash.material.opacity =
-        (1.0 - t) * 0.36 * state.intensity;
+      splash.material.opacity = (1.0 - t) * 0.36 * state.intensity;
 
       if (splash.userData.life <= 0) {
         splash.visible = false;
