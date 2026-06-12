@@ -218,10 +218,18 @@ function createButterflyMesh() {
 
   const textureLoader = new THREE.TextureLoader();
 
-  const rightWingTexture = textureLoader.load("/textures/wings-monarch.jpg");
+  const rightWingTexture = textureLoader.load(
+    `${import.meta.env.BASE_URL}textures/wings-monarch.jpg`
+  );
+
+  const leftWingTexture = textureLoader.load(
+    `${import.meta.env.BASE_URL}textures/wings-monarch.jpg`
+  );
+
+  //const rightWingTexture = textureLoader.load("/textures/wings-monarch.jpg");
   rightWingTexture.colorSpace = THREE.SRGBColorSpace;
 
-  const leftWingTexture = textureLoader.load("/textures/wings-monarch.jpg");
+  //const leftWingTexture = textureLoader.load("/textures/wings-monarch.jpg");
   leftWingTexture.colorSpace = THREE.SRGBColorSpace;
 
   leftWingTexture.wrapS = THREE.RepeatWrapping;

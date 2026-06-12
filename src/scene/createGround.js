@@ -11,8 +11,12 @@ function loadSoilTexture() {
   const textureLoader = new THREE.TextureLoader();
 
   const texture = textureLoader.load(
-    "/textures/GroundDirtWeedsPatchy004_COL_2K.jpg"
+    `${import.meta.env.BASE_URL}textures/GroundDirtWeedsPatchy004_COL_2K.jpg`
   );
+
+  /*const texture = textureLoader.load(
+    "/textures/GroundDirtWeedsPatchy004_COL_2K.jpg"
+  );*/
 
   texture.colorSpace = THREE.SRGBColorSpace;
 
