@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Plant</title>
+    <script type="module" crossorigin src="/Project_IG-Plants/assets/index-DtXPpQKF.js"></script>
+    <link rel="stylesheet" crossorigin href="/Project_IG-Plants/assets/index-nFOWOU6f.css">
+  </head>
+  <body>
+   <label class="mode-switch" aria-label="Toggle day and night mode">
+  <input id="nightToggle" type="checkbox" />
+
+  <span class="mode-slider">
+    <span class="mode-icon sun-icon">☀</span>
+    <span class="mode-icon moon-icon">☾</span>
+    <span class="mode-knob"></span>
+  </span>
+</label>
+<div id="ui">
+  <button id="stormButton">Start Storm</button>
+
+  <button id="seedButton">Plant seed</button>
+
+<div id="flowerColorMenu" class="hidden">
+  <label for="flowerColorPicker">Choose Flower Color</label>
+
+  <div class="flower-color-row">
+    <input
+      id="flowerColorPicker"
+      type="color"
+      value="#f2a0c4"
+    />
+
+    <button id="resetFlowerColorButton" type="button">
+      Reset
+    </button>
+  </div>
+  <div class="flower-menu-actions">
+    <button id="confirmFlowerColorButton" type="button">
+      Confirm
+    </button>
+
+    <button id="cancelFlowerColorButton" type="button">
+      Exit
+    </button>
+  </div>
+</div>
+
+  <div id="growthControls" class="hidden">
+  <label>
+    <div class="growth-header">
+      <span class="growth-title">Growth speed</span>
+    </div>
+
+    <input
+      id="growthSpeedSlider"
+      type="range"
+      min="1"
+      max="2.5"
+      step="0.01"
+      value="1"
+    />
+
+    <div class="growth-ticks">
+      <span>1x</span>
+      <span>1.5x</span>
+      <span>2.5x</span>
+    </div>
+  </label>
+</div>
+<div id="switchModeHint" class="switch-mode hidden">
+    <h4>Press S to enter butterfly view</h4>
+
+</div>
+</div>
+    <canvas id="webgl"></canvas>
+  </body>
+</html>
