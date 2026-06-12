@@ -1,5 +1,8 @@
 import * as THREE from "three";
 
+import groundTextureUrl from "../assets/textures/GroundDirtWeedsPatchy004_COL_2K.jpg";
+
+
 /*This file contains the logic behind the main ground enviroment */
 
 function rand(min, max) {
@@ -10,10 +13,8 @@ function rand(min, max) {
 function loadSoilTexture() {
   const textureLoader = new THREE.TextureLoader();
 
-  const texture = textureLoader.load(
-    `${import.meta.env.BASE_URL}textures/GroundDirtWeedsPatchy004_COL_2K.jpg`
-  );
 
+  const texture = textureLoader.load(groundTextureUrl);
   /*const texture = textureLoader.load(
     "/textures/GroundDirtWeedsPatchy004_COL_2K.jpg"
   );*/

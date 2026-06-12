@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import wingsTextureUrl from "../assets/textures/wings-monarch.jpg";
 /*Creating and animating the 3D butterfly object.
     Main functions:
     - building the butterfly model (body, head, wings, antennas, legs)
@@ -218,13 +219,9 @@ function createButterflyMesh() {
 
   const textureLoader = new THREE.TextureLoader();
 
-  const rightWingTexture = textureLoader.load(
-    `${import.meta.env.BASE_URL}textures/wings-monarch.jpg`
-  );
+  const rightWingTexture = textureLoader.load(wingsTextureUrl);
 
-  const leftWingTexture = textureLoader.load(
-    `${import.meta.env.BASE_URL}textures/wings-monarch.jpg`
-  );
+  const leftWingTexture = textureLoader.load(wingsTextureUrl);
 
   //const rightWingTexture = textureLoader.load("/textures/wings-monarch.jpg");
   rightWingTexture.colorSpace = THREE.SRGBColorSpace;
