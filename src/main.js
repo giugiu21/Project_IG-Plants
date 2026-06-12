@@ -46,7 +46,7 @@ scene.add(airParticles);
 
 //-------Settings for Storm mode----------
 const wetGround = createWetGround({
-  radius: 5,
+  radius: 4.75,
   y: 0.024
 });
 scene.add(wetGround.mesh);

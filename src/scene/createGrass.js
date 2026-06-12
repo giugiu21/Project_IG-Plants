@@ -3,7 +3,7 @@ import { randomPointInCircle } from "../utils/randomPointInCircle.js";
 
 /*This file contains the logic behind each grass blade geometry
     3 main functions:
-      - creating the custom geometry fro the single grass blade
+      - creating the custom geometry for the single grass blade
       - creating a custom shader material written with a vertex shader and fragment shader
       - updates the grass blade according to time
 */

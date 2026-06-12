@@ -78,13 +78,13 @@ function createOrchidLeafGeometry({
     new THREE.Float32BufferAttribute(vertices, 3)
   );
 
-  //a height in space
+  //relative position of the vertex w.r.t the leaf --- 0 = the base, 1 = the tip
   geometry.setAttribute(
     "aHeightFactor",
     new THREE.Float32BufferAttribute(heightFactors, 1)
   );
 
-  // right side
+  // lateral position of the vertex ---- -1 = left edge, 0 = center, 1 = right edge.
   geometry.setAttribute(
     "aSideFactor",
     new THREE.Float32BufferAttribute(sideFactors, 1)
