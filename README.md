@@ -3,7 +3,7 @@
 This project is an interactive 3D scene developed with **Three.js** and **WebGL**.  
 It represents a small natural environment where the user can plant seeds, grow flowers, observe animated grass and plants, switch between day and night, and activate a storm mode with rain and lightning.
 
-The project was developed as part of an Interactive Graphics course and focuses on procedural modeling, animation, shaders, and real-time interaction.
+The project was developed as part of an Interactive Graphics course at "La Sapienza" and focuses on procedural modeling, animation, shaders, and real-time interaction.
 
 ---
 
@@ -45,12 +45,9 @@ Seeds can be placed on the ground, and each seed grows into a plant through a gr
 The plant is composed of a stem, leaves and an orchid-like flower.
 
 The environment changes according to the selected mode.  
-During the day, the scene is brighter and warmer.  
-At night, the lighting becomes darker and fireflies appear.  
-During storm mode, rain starts falling, the wind becomes stronger, the ground becomes wet, puddles appear, and lightning temporarily illuminates the scene.
-
-Most objects in the project are generated procedurally instead of being imported as external 3D models.  
-This allows the scene to be lightweight and fully controlled through code.
+Day mode: the scene is brighter and warmer, with the presence of a butterfly.  
+Night mode: the lighting becomes darker and fireflies appear, the butterfly is still present.  
+Storm mode: rain starts falling, the wind becomes stronger, butterfly disappears the ground becomes visually wet with puddles, and lightning strikes randomly.
 
 ---
 
@@ -59,19 +56,10 @@ This allows the scene to be lightweight and fully controlled through code.
 The user can:
 
 - plant seeds on the ground;
-- watch plants grow over time;
+- choose the flower's color;
+- watch plants grow over time and decide the velocity of growth;
 - switch between day and night;
 - activate and deactivate storm mode;
 - interact with grass and leaves using the cursor;
 - observe fireflies at night;
-- follow the butterfly using a dedicated camera.
-
----
-
-## Installation
-
-Clone the repository:
-
-```bash
-git clone <repository-url>
-cd <repository-name>
+- switch to the butterfly view with a moving camera perspective.
