@@ -164,7 +164,7 @@ export function createSeedPlacement() {
       mesh: seed,
       velocity: new THREE.Vector3(0, 0, 0),
       target: state.groundPosition.clone(),
-      gravity: -7.5,
+      gravity: -9.81, // [m/s^2] real gravity
       bounce: 0.18,
       settled: false
     });
