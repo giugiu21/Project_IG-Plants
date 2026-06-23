@@ -215,6 +215,10 @@ export function createLeaf(options = {}) {
       void main() {
         vec3 pos = position;
 
+        // -----------------------------
+        // WIND DEFORMATION
+        // -----------------------------
+
         float h = aHeightFactor;
         float side = aSideFactor;
 
@@ -239,6 +243,10 @@ export function createLeaf(options = {}) {
         pos.x += sideSway * veryTipMask * 0.45;
         pos.z += flutter * abs(side) * baseMask;
         pos.z += side * sideSway * veryTipMask * 0.18;
+
+        // -----------------------------
+        // CURSOR EFFECT
+        // -----------------------------
 
         float distToCursor = distance(pos.xy, uCursorLocalPosition.xy);
 
@@ -380,7 +388,7 @@ export function createLeaf(options = {}) {
         color += vec3(gloss);
 
         // -----------------------------
-        // EFFETTO BAGNATO / PIOGGIA
+        // WETNESS EFFECT
         // -----------------------------
 
         float wetAmount = clamp(
@@ -443,7 +451,7 @@ export function createLeaf(options = {}) {
         color += vec3(0.85, 0.95, 1.0) * dropletMask * 0.28;
 
         // -----------------------------
-        // FULMINE
+        // LIGHTNING STRIKES
         // -----------------------------
 
         float lightning = clamp(uLightningIntensity, 0.0, 1.0);
@@ -469,7 +477,7 @@ export function createLeaf(options = {}) {
         }
 
         // -----------------------------
-        // GLOW LUCCIOLE
+        // FIREFLIES GLOW
         // -----------------------------
 
         float fireflyGlow = 0.0;

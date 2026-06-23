@@ -183,6 +183,10 @@ export function createGrass({
       void main() {
         vec3 pos = position;
 
+        // -----------------------------
+        // WIND EFFECT
+        // -----------------------------
+
         float heightFactor = uv.y;
 
         pos.x *= aScale.x;
@@ -215,7 +219,9 @@ export function createGrass({
         rotated.x += bend * s;
         rotated.z += bend * c;
 
-        // Cursor interaction
+        // -----------------------------
+        // CURSOR INTERACTION
+        // -----------------------------
         vec2 bladeXZ = aOffset.xz;
         vec2 cursorXZ = uCursorPosition.xz;
 

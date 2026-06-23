@@ -237,6 +237,10 @@ function createPetal({
       void main() {
         vec3 pos = position;
 
+        // -----------------------------
+        // WIND EFFECT
+        // -----------------------------
+
         float h = aHeightFactor;
         float side = aSideFactor;
 
@@ -260,6 +264,10 @@ function createPetal({
         pos.z += sway * tipMask * 0.75;
         pos.x += sideSway * veryTipMask * 0.2;
         pos.z += flutter * edgeMask * tipMask;
+
+        // -----------------------------
+        // CURSOR EFFECT
+        // -----------------------------
 
         float distToCursor = distance(pos.xy, uCursorLocalPosition.xy);
 
@@ -339,6 +347,10 @@ function createPetal({
         float h = vHeightFactor;
         float side = vSideFactor;
 
+        // -----------------------------
+        // DIFFERENT COLORS FOR THE PETALS/SEPALS
+        // -----------------------------
+
         vec3 baseColor = mix(
           uBaseColor,
           uNightColor,
@@ -413,7 +425,7 @@ function createPetal({
         color *= mix(1.0, 0.82, edge);
 
         // -----------------------------
-        // FULMINE SUI PETALI
+        // LIGHTNING STRIKES
         // -----------------------------
 
         float lightning = clamp(uLightningIntensity, 0.0, 1.0);
@@ -443,7 +455,7 @@ function createPetal({
         }
 
         // -----------------------------
-        // GLOW LUCCIOLE
+        // FIREFLIES GLOW
         // -----------------------------
 
         float fireflyGlow = 0.0;
